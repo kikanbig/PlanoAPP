@@ -187,6 +187,7 @@ export default function ProductCatalog() {
               <div className="space-y-1 text-sm text-gray-600">
                 <p>Категория: {product.category}</p>
                 <p>Размеры: {product.width}×{product.height}×{product.depth}мм</p>
+                <p>Отступ: {product.spacing || 2}мм</p>
                 {product.barcode && (
                   <p>Штрихкод: {product.barcode}</p>
                 )}
@@ -230,7 +231,8 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
     color: product?.color || '#E5E7EB',
     category: product?.category || '',
     barcode: product?.barcode || '',
-    imageUrl: product?.imageUrl || null
+    imageUrl: product?.imageUrl || null,
+    spacing: product?.spacing || 2
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -343,6 +345,24 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
               onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
               className="input w-full"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Расстояние между товарами (мм)
+            </label>
+            <input
+              type="number"
+              value={formData.spacing}
+              onChange={(e) => setFormData(prev => ({ ...prev, spacing: Number(e.target.value) }))}
+              className="input w-full"
+              min="0"
+              max="50"
+              placeholder="2"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Минимальное расстояние между этим товаром и соседними (по умолчанию 2мм)
+            </p>
           </div>
           
           <div className="flex space-x-3 pt-4">

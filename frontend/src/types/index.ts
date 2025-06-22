@@ -8,6 +8,7 @@ export interface Product {
   category: string
   barcode?: string
   imageUrl?: string | null
+  spacing?: number // расстояние между товарами в мм (по умолчанию 2мм)
 }
 
 export interface ShelfItem {

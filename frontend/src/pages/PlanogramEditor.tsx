@@ -210,18 +210,18 @@ export default function PlanogramEditor() {
     console.log('Занятые участки:', occupiedSpaces)
 
     // Ищем свободное место для товара
-    const GAP = 5 // зазор между товарами в пикселях
-    let nextX = shelf.x + 5 // начальный отступ от левого края полки
+    const spacingPx = mmToPixels(product.spacing || 2) // используем spacing из товара
+    let nextX = shelf.x // убираем отступ от края полки
 
     // Проходим по всем занятым участкам и ищем место
     for (const space of occupiedSpaces) {
-      if (nextX + productWidthPx + GAP <= space.start) {
+      if (nextX + productWidthPx + spacingPx <= space.start) {
         // Товар помещается перед этим участком
         console.log(`✅ Место найдено перед товаром ${space.product}, позиция X: ${nextX}`)
         break
       }
       // Сдвигаем позицию за текущий участок
-      nextX = space.end + GAP
+      nextX = space.end + spacingPx
       console.log(`➡️ Сдвигаем позицию за товар ${space.product}, новая позиция X: ${nextX}`)
     }
 

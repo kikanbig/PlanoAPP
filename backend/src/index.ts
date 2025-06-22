@@ -24,6 +24,7 @@ interface Product {
   category: string
   barcode?: string
   imageUrl?: string | null
+  spacing?: number // расстояние между товарами в мм (по умолчанию 2мм)
   createdAt: string
   updatedAt: string
 }
@@ -51,6 +52,7 @@ let products: Product[] = [
     category: 'Молочные продукты',
     barcode: '1234567890123',
     imageUrl: null,
+    spacing: 3,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -64,6 +66,7 @@ let products: Product[] = [
     category: 'Хлебобулочные изделия',
     barcode: '2345678901234',
     imageUrl: null,
+    spacing: 5,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -77,6 +80,7 @@ let products: Product[] = [
     category: 'Молочные продукты',
     barcode: '3456789012345',
     imageUrl: null,
+    spacing: 2,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   },
@@ -90,6 +94,7 @@ let products: Product[] = [
     category: 'Мясные изделия',
     barcode: '4567890123456',
     imageUrl: null,
+    spacing: 4,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
