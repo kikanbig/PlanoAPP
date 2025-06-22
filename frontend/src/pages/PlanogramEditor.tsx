@@ -640,6 +640,20 @@ export default function PlanogramEditor() {
                             : i
                         ))
                       }}
+                      onTransformEnd={(e) => {
+                        console.log('🔄 Transform end:', e)
+                        setItems(prev => prev.map(i => 
+                          i.id === item.id 
+                            ? { 
+                                ...i, 
+                                width: snapToGrid(e.width), 
+                                height: snapToGrid(e.height) 
+                              }
+                            : i
+                        ))
+                        // Перемещаем товары к новой нижней границе полки
+                        setTimeout(() => repositionProductsOnShelf(item.id), 200)
+                      }}
                     />
                   )
                 } else {
@@ -812,6 +826,10 @@ export default function PlanogramEditor() {
                                   : item
                               ))
                             }}
+                            onBlur={() => {
+                              // Перемещаем товары только после завершения ввода
+                              setTimeout(() => repositionProductsOnShelf(selectedId!), 100)
+                            }}
                             className="input w-full text-sm h-8"
                             min="50"
                             max="2000"
@@ -832,8 +850,10 @@ export default function PlanogramEditor() {
                                   ? { ...item, height: newHeightPx }
                                   : item
                               ))
-                              // Автоматически перемещаем товары к нижней границе полки
-                              setTimeout(() => repositionProductsOnShelf(selectedId!), 0)
+                            }}
+                            onBlur={() => {
+                              // Перемещаем товары только после завершения ввода
+                              setTimeout(() => repositionProductsOnShelf(selectedId!), 100)
                             }}
                             className="input w-full text-sm h-8"
                             min="20"
