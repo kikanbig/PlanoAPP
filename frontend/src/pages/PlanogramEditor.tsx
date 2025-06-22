@@ -256,27 +256,31 @@ export default function PlanogramEditor() {
 
   // Функция для перемещения товаров к нижней границе полки
   const repositionProductsOnShelf = useCallback((shelfId: string) => {
-    const shelf = items.find(item => item.id === shelfId)
-    if (!shelf) return
+    setItems(prev => {
+      // Находим полку в актуальном состоянии
+      const shelf = prev.find(item => item.id === shelfId)
+      if (!shelf) return prev
 
-    setItems(prev => prev.map(item => {
-      // Проверяем, что это товар на данной полке
-      if (item.type === 'product' && 
-          item.x >= shelf.x && 
-          item.x < shelf.x + shelf.width &&
-          item.y >= shelf.y && 
-          item.y < shelf.y + shelf.height + 100) { // 100px толерантность
-        
-        // Перемещаем товар к нижней границе полки
-        const newY = shelf.y + shelf.height - item.height - 5 // 5px отступ от дна
-        return {
-          ...item,
-          y: snapToGrid(newY)
+      return prev.map(item => {
+        // Проверяем, что это товар на данной полке
+        if (item.type === 'product' && 
+            item.x >= shelf.x - 10 && // небольшая толерантность слева
+            item.x < shelf.x + shelf.width + 10 && // и справа
+            item.y >= shelf.y - 10 && // и сверху 
+            item.y < shelf.y + shelf.height + 100) { // и снизу с большей толерантностью
+          
+          // Перемещаем товар к нижней границе полки
+          const newY = shelf.y + shelf.height - item.height - 5 // 5px отступ от дна
+          console.log('🔄 Перемещаем товар:', item.product?.name, 'с Y:', item.y, 'на Y:', newY)
+          return {
+            ...item,
+            y: snapToGrid(newY)
+          }
         }
-      }
-      return item
-    }))
-  }, [items, snapToGrid])
+        return item
+      })
+    })
+  }, [snapToGrid])
 
   const deleteItem = useCallback((id: string) => {
     setItems(prev => prev.filter(item => item.id !== id))
