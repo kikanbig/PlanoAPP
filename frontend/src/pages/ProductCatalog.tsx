@@ -293,8 +293,10 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
                 type="number"
                 value={formData.width}
                 onChange={(e) => setFormData(prev => ({ ...prev, width: Number(e.target.value) }))}
+                onFocus={(e) => e.target.select()}
                 className="input w-full"
                 min="1"
+                placeholder="Введите ширину"
               />
             </div>
             <div>
@@ -305,8 +307,10 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
                 type="number"
                 value={formData.height}
                 onChange={(e) => setFormData(prev => ({ ...prev, height: Number(e.target.value) }))}
+                onFocus={(e) => e.target.select()}
                 className="input w-full"
                 min="1"
+                placeholder="Введите высоту"
               />
             </div>
             <div>
@@ -317,8 +321,10 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
                 type="number"
                 value={formData.depth}
                 onChange={(e) => setFormData(prev => ({ ...prev, depth: Number(e.target.value) }))}
+                onFocus={(e) => e.target.select()}
                 className="input w-full"
                 min="1"
+                placeholder="Введите глубину"
               />
             </div>
           </div>
@@ -355,10 +361,11 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
               type="number"
               value={formData.spacing}
               onChange={(e) => setFormData(prev => ({ ...prev, spacing: Number(e.target.value) }))}
+              onFocus={(e) => e.target.select()}
               className="input w-full"
               min="0"
               max="50"
-              placeholder="2"
+              placeholder="Введите расстояние (по умолчанию 2мм)"
             />
             <p className="text-xs text-gray-500 mt-1">
               Минимальное расстояние между этим товаром и соседними (по умолчанию 2мм)
