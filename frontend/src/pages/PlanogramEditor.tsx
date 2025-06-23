@@ -645,10 +645,14 @@ export default function PlanogramEditor() {
       
       if (!withinHorizontalBounds) return false
       
-      // Для верхней полки стеллажа товары размещаются так же, как на обычных полках
+      // Для верхней полки стеллажа товары могут выступать выше полки
       if (isTopShelfOfRack) {
-        // Для верхней полки: товар также должен быть ВНУТРИ полки (касаться нижней границы)
-        const withinVerticalBounds = item.y >= shelf.y && item.y + item.height <= shelf.y + shelf.height + 10
+        // Для верхней полки: товар должен касаться нижней границы полки (может выступать выше)
+        // Низ товара должен быть на уровне низа полки (с толерантностью)
+        const shelfBottom = shelf.y + shelf.height
+        const itemBottom = item.y + item.height
+        const standsOnShelfBottom = Math.abs(itemBottom - shelfBottom) <= 10
+        
         console.log(`🔍 ИСПРАВЛЕННАЯ проверка товара на верхней полке "${item.product?.name}":`, {
           shelfId: shelf.id,
           itemY: item.y,
@@ -657,11 +661,12 @@ export default function PlanogramEditor() {
           shelfY: shelf.y,
           shelfHeight: shelf.height,
           shelfBottom: shelf.y + shelf.height,
-          withinVerticalBounds,
+          standsOnShelfBottom,
+          tolerance: Math.abs(itemBottom - shelfBottom),
           isTopShelf: true,
-          explanation: 'Товар размещается внутри полки (касается нижней границы)'
+          explanation: 'Товар касается нижней границы полки (может выступать выше)'
         })
-        return withinVerticalBounds
+        return standsOnShelfBottom
       } else {
         // Для обычных полок: товар должен быть ВНУТРИ полки
         const withinVerticalBounds = item.y >= shelf.y && item.y + item.height <= shelf.y + shelf.height + 10
