@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { Group, Rect, Text, Transformer, Line } from 'react-konva'
 import { ShelfItem, PlanogramSettings } from '../types'
 
@@ -37,8 +37,7 @@ export default function EnhancedShelf({
   }
   
   const baseColor = shelfColors[shelf.shelfType || 'standard'] || '#F3F4F6'
-  const sideColor = '#D1D5DB'
-  const topColor = '#E5E7EB'
+
   
   useEffect(() => {
     if (isSelected && transformerRef.current && shelfRef.current) {
@@ -47,7 +46,7 @@ export default function EnhancedShelf({
     }
   }, [isSelected])
   
-  const handleTransformEnd = (e: any) => {
+  const handleTransformEnd = () => {
     const node = shelfRef.current
     if (!node) return
     

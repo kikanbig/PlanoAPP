@@ -23,12 +23,19 @@ export interface ShelfItem {
   resizable?: boolean
   shelfType?: 'standard' | 'hook' | 'basket' | 'divider' // тип полки
   maxLoad?: number // максимальная нагрузка в кг
+  // Метаданные для полок стеллажей
+  rackId?: string
+  level?: number
+  isTopShelf?: boolean
+  isBottomShelf?: boolean
 }
 
 export interface RackSystem {
   id: string
   name: string
   type: 'gondola' | 'wall' | 'endcap' | 'island'
+  x: number // позиция X в пикселях
+  y: number // позиция Y в пикселях
   width: number
   height: number
   depth: number

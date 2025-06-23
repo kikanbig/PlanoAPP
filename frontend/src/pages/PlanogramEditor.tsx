@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Text, Group, Image as KonvaImage, Transformer } from 'react-konva'
+import { Stage, Layer, Rect, Group } from 'react-konva'
 import { 
-  PlusIcon, 
+ 
   TrashIcon, 
   DocumentArrowDownIcon,
   Cog6ToothIcon,
@@ -20,7 +20,7 @@ export default function PlanogramEditor() {
   const [items, setItems] = useState<ShelfItem[]>([])
   const [racks, setRacks] = useState<RackSystem[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
   const [showPropertiesModal, setShowPropertiesModal] = useState(false)
@@ -130,28 +130,414 @@ export default function PlanogramEditor() {
     toast.success(`Полка добавлена`)
   }, [snapToGrid, mmToPixels, settings.defaultShelfDepth])
 
+  // Функция для создания полок с правильным позиционированием
+  const createRackShelves = useCallback((rack: RackSystem) => {
+    const rackWidthPx = mmToPixels(rack.width)
+    const rackHeightPx = mmToPixels(rack.height)
+    const shelfThickness = 20 // толщина полки в мм
+    const shelfThicknessPx = mmToPixels(shelfThickness)
+    
+    // Отступы от краев стеллажа
+    const margin = 20 // отступ сверху и снизу в мм
+    const marginPx = mmToPixels(margin)
+    
+    // Доступная высота для размещения полок (исключаем отступы сверху и снизу)
+    const availableHeight = rackHeightPx - 2 * marginPx
+    
+    // Высота одного уровня (равномерно распределяем доступное пространство)
+    const levelHeight = availableHeight / rack.levels
+    
+    const shelves: ShelfItem[] = []
+    
+    for (let level = 0; level < rack.levels; level++) {
+      // Полки нумеруются снизу вверх
+      // level = 0 - нижняя полка
+      // level = levels-1 - верхняя полка
+      
+      let shelfY: number
+      let shelfHeight: number
+      
+      if (level === rack.levels - 1) {
+        // Верхняя полка - начинается с верха своего уровня и растет ВВЕРХ (неограниченная высота)
+        // Позиция Y = верх стеллажа + отступ + позиция уровня
+        shelfY = rack.y + marginPx + (rack.levels - 1 - level) * levelHeight
+        shelfHeight = mmToPixels(500) // Разумная высота вместо 2000, чтобы не перекрывать
+      } else {
+        // Все остальные полки - равномерно распределены внутри стеллажа
+        // Считаем позицию от ВЕРХА стеллажа вниз
+        shelfY = rack.y + marginPx + (rack.levels - 1 - level) * levelHeight
+        shelfHeight = levelHeight - shelfThicknessPx // оставляем место для толщины полки
+      }
+      
+      // Минимальная высота для видимости
+      shelfHeight = Math.max(shelfHeight, mmToPixels(30))
+      
+      const shelf: ShelfItem = {
+        id: `${rack.id}-shelf-${level}`,
+        x: rack.x,
+        y: shelfY,
+        width: rackWidthPx,
+        height: shelfHeight,
+        depth: rack.depth,
+        type: 'shelf',
+        shelfType: 'standard',
+        resizable: true,
+        maxLoad: 20,
+        // Метаданные
+        rackId: rack.id,
+        level,
+        isTopShelf: level === rack.levels - 1,
+        isBottomShelf: level === 0
+      }
+      
+      shelves.push(shelf)
+    }
+    
+    return shelves
+  }, [mmToPixels])
+
   const addRack = useCallback((rackType: 'gondola' | 'wall' | 'endcap' | 'island') => {
+    const rackId = `rack-${Date.now()}`
+    const rackX = snapToGrid(100)
+    const rackY = snapToGrid(100)
+    
+    // Создаем стеллаж
     const newRack: RackSystem = {
-      id: `rack-${Date.now()}`,
+      id: rackId,
       name: `Стеллаж`,
       type: rackType,
+      x: rackX,
+      y: rackY,
       width: 1200,
       height: 1800,
       depth: 400,
       levels: 4,
       shelves: []
     }
+    
+    // Автоматически создаем полки для стеллажа
+    const shelves = createRackShelves(newRack)
+    
+    // Обновляем стеллаж с полками
+    newRack.shelves = shelves
+    
+    // Добавляем стеллаж (полки НЕ добавляем в items - они хранятся в rack.shelves)
     setRacks(prev => [...prev, newRack])
-    toast.success('Стеллаж добавлен')
-  }, [])
+    // НЕ добавляем полки стеллажей в items
+    
+    toast.success(`Стеллаж добавлен с ${newRack.levels} полками`)
+  }, [snapToGrid, createRackShelves])
+
+  // Функция для обновления полок в стеллаже при изменении количества уровней
+  const updateRackShelves = useCallback((rackId: string, newLevels: number) => {
+    setRacks(prev => prev.map(rack => {
+      if (rack.id !== rackId) return rack
+      
+      // Удаляем старые полки из items
+      setItems(prevItems => prevItems.filter(item => !rack.shelves.some(shelf => shelf.id === item.id)))
+      
+      // Создаем обновленный стеллаж с новым количеством уровней
+      const updatedRack = { ...rack, levels: newLevels }
+      
+      // Создаем новые полки встроенной функцией
+      const newShelves: ShelfItem[] = []
+      
+      // Размеры стеллажа в пикселях
+      const rackWidthPx = updatedRack.width * settings.pixelsPerMm
+      const rackHeightPx = updatedRack.height * settings.pixelsPerMm
+      
+      // НОВАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
+      // Каждая полка занимает 1/levels часть от общей высоты стеллажа
+      const shelfHeightPx = rackHeightPx / newLevels
+      
+      for (let i = 0; i < newLevels; i++) {
+        // Полки располагаются снизу вверх
+        // Нижняя полка (i=0) начинается от нижнего края стеллажа
+        // Каждая следующая полка выше на shelfHeightPx
+        const shelfY = updatedRack.y + rackHeightPx - (i + 1) * shelfHeightPx
+        
+        const shelf: ShelfItem = {
+          id: `shelf-${updatedRack.id}-${i}`,
+          type: 'shelf' as const,
+          x: updatedRack.x,
+          y: shelfY,
+          width: rackWidthPx,
+          height: shelfHeightPx,
+          depth: updatedRack.depth,
+          level: i,
+          rackId: updatedRack.id
+        }
+        
+        newShelves.push(shelf)
+      }
+      
+      // НЕ добавляем полки стеллажей в items - они хранятся в rack.shelves
+      console.log(`📋 Создали полки для стеллажа ${updatedRack.id}:`, newShelves.map(s => ({ 
+        id: s.id, 
+        level: s.level,
+        x: s.x, 
+        y: s.y,
+        width: s.width,
+        height: s.height,
+        heightMm: Math.round(s.height / settings.pixelsPerMm),
+        rackY: updatedRack.y,
+        rackHeight: rackHeightPx,
+        rackBottom: updatedRack.y + rackHeightPx
+      })))
+      
+      return {
+        ...updatedRack,
+        shelves: newShelves
+      }
+    }))
+  }, [settings.pixelsPerMm])
+
+  // Функция для обновления размеров стеллажа и пересчета полок
+  const updateRackDimensions = useCallback((rackId: string, newDimensions: Partial<Pick<RackSystem, 'width' | 'height' | 'depth'>>) => {
+    setRacks(prev => prev.map(rack => {
+      if (rack.id !== rackId) return rack
+      
+      const updatedRack = { ...rack, ...newDimensions }
+      
+      // Если изменились размеры, пересчитываем полки
+      if (newDimensions.width || newDimensions.height) {
+        // Создаем новые полки встроенной функцией
+        const newShelves: ShelfItem[] = []
+        
+        // Размеры стеллажа в пикселях
+        const rackWidthPx = updatedRack.width * settings.pixelsPerMm
+        const rackHeightPx = updatedRack.height * settings.pixelsPerMm
+        
+        // НОВАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
+        // Каждая полка занимает 1/levels часть от общей высоты стеллажа
+        const shelfHeightPx = rackHeightPx / updatedRack.levels
+        
+        for (let i = 0; i < updatedRack.levels; i++) {
+          // Полки располагаются снизу вверх
+          // Нижняя полка (i=0) начинается от нижнего края стеллажа
+          // Каждая следующая полка выше на shelfHeightPx
+          const shelfY = updatedRack.y + rackHeightPx - (i + 1) * shelfHeightPx
+          
+          const shelf: ShelfItem = {
+            id: `shelf-${updatedRack.id}-${i}`,
+            type: 'shelf' as const,
+            x: updatedRack.x,
+            y: shelfY,
+            width: rackWidthPx,
+            height: shelfHeightPx,
+            depth: updatedRack.depth,
+            level: i,
+            rackId: updatedRack.id
+          }
+          
+          newShelves.push(shelf)
+        }
+        
+        // Обновляем состояние
+        updatedRack.shelves = newShelves
+      }
+      
+      return updatedRack
+    }))
+  }, [settings.pixelsPerMm])
+
+  // Эффект для пересчета полок и товаров при изменении масштаба
+  const prevPixelsPerMm = useRef(settings.pixelsPerMm)
+  const isScalingInProgress = useRef(false)
+  const racksRef = useRef(racks)
+  const itemsRef = useRef(items)
+  
+  // Обновляем refs при изменении данных
+  useEffect(() => {
+    racksRef.current = racks
+  }, [racks])
+  
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+  
+  useEffect(() => {
+    // Проверяем реальное изменение масштаба
+    if (prevPixelsPerMm.current === settings.pixelsPerMm || isScalingInProgress.current) {
+      return
+    }
+    
+    const oldScale = prevPixelsPerMm.current
+    const newScale = settings.pixelsPerMm
+    const currentRacks = racksRef.current
+    const currentItems = itemsRef.current
+    
+    isScalingInProgress.current = true
+    
+    console.log('🔄 Изменился масштаб, пересчитываем все элементы...', { 
+      oldScale, 
+      newScale,
+      racksCount: currentRacks.length,
+      itemsCount: currentItems.length 
+    })
+    
+    // Пересчитываем все синхронно без таймеров
+    const scaleRatio = newScale / oldScale
+    
+    // Обновляем стеллажи и их полки
+    const newRacks = currentRacks.map(rack => {
+      const newShelves: ShelfItem[] = []
+      
+      // Размеры стеллажа в пикселях с новым масштабом
+      const rackWidthPx = rack.width * newScale
+      const rackHeightPx = rack.height * newScale
+      
+      // НОВАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
+      // Каждая полка занимает 1/levels часть от общей высоты стеллажа
+      const shelfHeightPx = rackHeightPx / rack.levels
+      
+      for (let i = 0; i < rack.levels; i++) {
+        // Полки располагаются снизу вверх
+        // Нижняя полка (i=0) начинается от нижнего края стеллажа
+        // Каждая следующая полка выше на shelfHeightPx
+        const shelfY = rack.y + rackHeightPx - (i + 1) * shelfHeightPx
+        
+        const shelf: ShelfItem = {
+          id: `shelf-${rack.id}-${i}`,
+          type: 'shelf' as const,
+          x: rack.x,
+          y: shelfY,
+          width: rackWidthPx,
+          height: shelfHeightPx,
+          depth: rack.depth,
+          level: i,
+          rackId: rack.id
+        }
+        
+        newShelves.push(shelf)
+      }
+      
+      console.log(`✅ Пересчитали полки для стеллажа ${rack.id}: ${newShelves.length} полок`, newShelves.map(s => ({
+        id: s.id,
+        level: s.level,
+        x: s.x,
+        y: s.y,
+        width: s.width,
+        height: s.height,
+        heightMm: Math.round(s.height / newScale),
+        rackY: rack.y,
+        rackHeight: rackHeightPx,
+        rackBottom: rack.y + rackHeightPx
+      })))
+      
+      return {
+        ...rack,
+        shelves: newShelves
+      }
+    })
+    
+    // Обновляем items: НЕ включаем полки стеллажей в items (они хранятся в rack.shelves)
+    const newItems = currentItems
+      .filter(item => {
+        // Оставляем только товары и отдельные полки (НЕ полки стеллажей)
+        const shouldKeep = !(item.type === 'shelf' && item.rackId)
+        if (!shouldKeep && item.type === 'shelf') {
+          console.log('🗑️ Удаляем полку стеллажа из items:', item.id)
+        }
+        return shouldKeep
+      })
+      .map(item => {
+        if (item.type === 'product' && item.product) {
+          // Масштабируем товары
+          const newWidth = item.product.width * newScale
+          const newHeight = item.product.height * newScale
+          
+          console.log('📦 Масштабируем товар:', {
+            id: item.id,
+            name: item.product.name,
+            oldSize: { width: item.width, height: item.height },
+            newSize: { width: newWidth, height: newHeight }
+          })
+          
+          return {
+            ...item,
+            width: newWidth,
+            height: newHeight
+          }
+        }
+        
+        if (item.type === 'shelf' && !item.rackId) {
+          // Масштабируем отдельные полки
+          const widthMm = item.width / oldScale
+          const heightMm = item.height / oldScale
+          
+          console.log('📋 Масштабируем отдельную полку:', {
+            id: item.id,
+            oldSize: { width: item.width, height: item.height },
+            newSize: { width: widthMm * newScale, height: heightMm * newScale }
+          })
+          
+          return {
+            ...item,
+            width: widthMm * newScale,
+            height: heightMm * newScale
+          }
+        }
+        
+        return item
+      })
+    
+    console.log('📊 Результат фильтрации items:', {
+      originalCount: currentItems.length,
+      filteredCount: newItems.length,
+      products: newItems.filter(i => i.type === 'product').length,
+      independentShelves: newItems.filter(i => i.type === 'shelf' && !i.rackId).length
+    })
+    
+    // Обновляем состояние
+    setRacks(newRacks)
+    setItems(newItems)
+    
+    // Обновляем масштаб и сбрасываем флаг
+    prevPixelsPerMm.current = newScale
+    isScalingInProgress.current = false
+    console.log('✅ Масштабирование завершено')
+    
+  }, [settings.pixelsPerMm]) // ТОЛЬКО pixelsPerMm!
 
   const addProduct = useCallback((product: Product) => {
+    console.log(`🎯 ДОБАВЛЕНИЕ ТОВАРА "${product.name}":`, {
+      selectedId,
+      hasSelectedId: !!selectedId,
+      availableRacks: racks.length,
+      availableItems: items.length
+    })
+
     if (!selectedId) {
       toast.error('Сначала выберите полку')
       return
     }
 
-    const shelf = items.find(item => item.id === selectedId && item.type === 'shelf')
+    // Ищем полку сначала в items (отдельные полки), затем в racks (полки стеллажей)
+    let shelf = items.find(item => item.id === selectedId && item.type === 'shelf')
+    
+    console.log(`🔍 Поиск полки в items:`, {
+      selectedId,
+      foundInItems: !!shelf,
+      allItemsIds: items.map(item => ({ id: item.id, type: item.type }))
+    })
+    
+    if (!shelf) {
+      // Ищем в полках стеллажей
+      for (const rack of racks) {
+        const rackShelf = rack.shelves.find(s => s.id === selectedId)
+        if (rackShelf) {
+          shelf = rackShelf
+          console.log(`✅ Полка найдена в стеллаже ${rack.id}:`, {
+            shelfId: rackShelf.id,
+            shelfLevel: rack.shelves.indexOf(rackShelf),
+            rackId: rack.id
+          })
+          break
+        }
+      }
+    }
+    
     if (!shelf) {
       toast.error('Выберите полку для размещения товара')
       return
@@ -161,7 +547,24 @@ export default function PlanogramEditor() {
     const shelfHeightMm = Math.round(shelf.height / settings.pixelsPerMm)
     const shelfDepthMm = shelf.depth || 400
 
-    if (product.height > shelfHeightMm) {
+    // Проверяем высоту только если это НЕ верхняя полка стеллажа (у неё неограниченная высота)
+    const isTopShelfOfRack = racks.some(rack => 
+      rack.shelves.length > 0 && 
+      rack.shelves[rack.shelves.length - 1].id === shelf.id // верхняя полка имеет максимальный level (последняя в массиве)
+    )
+    
+    console.log(`🏷️ Определение типа полки:`, {
+      shelfId: shelf.id,
+      isTopShelfOfRack,
+      racksWithShelves: racks.map(rack => ({
+        rackId: rack.id,
+        shelvesCount: rack.shelves.length,
+        topShelfId: rack.shelves[rack.shelves.length - 1]?.id,
+        allShelvesIds: rack.shelves.map(s => s.id)
+      }))
+    })
+    
+    if (!isTopShelfOfRack && product.height > shelfHeightMm) {
       toast.error(`Товар слишком высокий для полки (${product.height}мм > ${shelfHeightMm}мм)`)
       return
     }
@@ -175,28 +578,105 @@ export default function PlanogramEditor() {
     const productWidthPx = mmToPixels(product.width)
     const productHeightPx = mmToPixels(product.height)
     
-    // Вычисляем Y координату товара (внизу полки)
-    const productY = shelf.y + shelf.height - productHeightPx - 5 // 5px отступ от дна полки
+    // Вычисляем Y координату товара
+    const shelfBottomY = shelf.y + shelf.height
+    let productY: number
     
-    // Находим все товары на этой полке (в пределах одной линии по Y)
-    const POSITION_TOLERANCE = 20 // пикселей
-    const productsOnShelf = items.filter(item => 
-      item.type === 'product' && 
-      Math.abs(item.y - productY) <= POSITION_TOLERANCE &&
-      item.x >= shelf.x - 10 && // небольшая толерантность слева 
-      item.x <= shelf.x + shelf.width + 10 // и справа от полки
-    )
+    if (isTopShelfOfRack) {
+      // Для верхней полки: товар стоит НА полке
+      // Товар должен касаться НИЖНЕЙ части полки (низа полки)
+      // Низ товара = нижняя граница полки = shelf.y + shelf.height
+      // Поэтому Y товара = (shelf.y + shelf.height) - productHeightPx
+      productY = shelfBottomY - productHeightPx
+      console.log(`📐 ИСПРАВЛЕННЫЙ расчет Y для верхней полки:`, {
+        shelfY: shelf.y,
+        shelfHeight: shelf.height,
+        shelfBottom: shelfBottomY,
+        productHeightPx,
+        calculatedY: productY,
+        productBottom: productY + productHeightPx,
+        shouldEqualShelfBottom: shelfBottomY,
+        explanation: 'Товар стоит НА НИЖНЕЙ ГРАНИЦЕ полки (как на всех других полках)'
+      })
+    } else {
+      // Для обычных полок: товар размещается ВНУТРИ полки
+      productY = shelfBottomY - productHeightPx
+      
+      // Проверяем, что товар помещается по высоте внутри полки
+      if (productHeightPx > shelf.height) {
+        const shelfHeightMm = Math.round(shelf.height / settings.pixelsPerMm)
+        toast.error(`Товар не помещается по высоте (${product.height}мм > ${shelfHeightMm}мм)`)
+        return
+      }
+    }
+    
+    // Находим все товары на этой полке
+    console.log(`🔍 Поиск товаров для полки ${shelf.id}:`, {
+      shelfX: shelf.x,
+      shelfWidth: shelf.width,
+      shelfY: shelf.y,
+      shelfHeight: shelf.height,
+      totalItems: items.length,
+      products: items.filter(i => i.type === 'product').map(i => ({
+        name: i.product?.name,
+        x: i.x,
+        y: i.y,
+        width: i.width,
+        height: i.height
+      }))
+    })
 
-    console.log('🔍 DEBUG addProduct:')
-    console.log('Полка:', { x: shelf.x, y: shelf.y, width: shelf.width, height: shelf.height })
-    console.log('Товары на полке:', productsOnShelf.map(p => ({ 
-      name: p.product?.name, 
-      x: p.x, 
-      y: p.y, 
-      width: p.width, 
-      height: p.height 
-    })))
-    console.log('Новый товар Y:', productY)
+    const productsOnShelf = items.filter(item => {
+      if (item.type !== 'product') return false
+      
+      // Проверяем горизонтальные границы полки (с толерантностью)
+      const withinHorizontalBounds = item.x >= shelf.x - 10 && item.x < shelf.x + shelf.width + 10
+      
+      console.log(`🔍 Проверка товара "${item.product?.name}" для полки ${shelf.id}:`, {
+        itemX: item.x,
+        itemY: item.y,
+        shelfX: shelf.x,
+        shelfY: shelf.y,
+        shelfWidth: shelf.width,
+        shelfHeight: shelf.height,
+        withinHorizontalBounds,
+        horizontalCheck: `${item.x} >= ${shelf.x - 10} && ${item.x} < ${shelf.x + shelf.width + 10}`
+      })
+      
+      if (!withinHorizontalBounds) return false
+      
+      // Для верхней полки стеллажа товары размещаются так же, как на обычных полках
+      if (isTopShelfOfRack) {
+        // Для верхней полки: товар также должен быть ВНУТРИ полки (касаться нижней границы)
+        const withinVerticalBounds = item.y >= shelf.y && item.y + item.height <= shelf.y + shelf.height + 10
+        console.log(`🔍 ИСПРАВЛЕННАЯ проверка товара на верхней полке "${item.product?.name}":`, {
+          shelfId: shelf.id,
+          itemY: item.y,
+          itemHeight: item.height,
+          itemBottom: item.y + item.height,
+          shelfY: shelf.y,
+          shelfHeight: shelf.height,
+          shelfBottom: shelf.y + shelf.height,
+          withinVerticalBounds,
+          isTopShelf: true,
+          explanation: 'Товар размещается внутри полки (касается нижней границы)'
+        })
+        return withinVerticalBounds
+      } else {
+        // Для обычных полок: товар должен быть ВНУТРИ полки
+        const withinVerticalBounds = item.y >= shelf.y && item.y + item.height <= shelf.y + shelf.height + 10
+        console.log(`🔍 Проверка товара на обычной полке "${item.product?.name}":`, {
+          shelfId: shelf.id,
+          itemY: item.y,
+          itemHeight: item.height,
+          shelfY: shelf.y,
+          shelfHeight: shelf.height,
+          withinVerticalBounds,
+          isTopShelf: false
+        })
+        return withinVerticalBounds
+      }
+    })
 
     // Создаем отсортированный массив занятых участков на полке
     const occupiedSpaces = productsOnShelf
@@ -207,22 +687,44 @@ export default function PlanogramEditor() {
       }))
       .sort((a, b) => a.start - b.start)
 
-    console.log('Занятые участки:', occupiedSpaces)
+    console.log(`📋 Найдено товаров на полке ${shelf.id}:`, {
+      totalProducts: productsOnShelf.length,
+      products: productsOnShelf.map(p => ({
+        name: p.product?.name,
+        x: p.x,
+        width: p.width,
+        y: p.y,
+        height: p.height
+      })),
+      occupiedSpaces,
+      isTopShelf: isTopShelfOfRack
+    })
 
     // Ищем свободное место для товара
     const spacingPx = mmToPixels(product.spacing || 2) // используем spacing из товара
-    let nextX = shelf.x // убираем отступ от края полки
+    let nextX = shelf.x // начинаем от левого края полки
+
+    console.log(`🔍 Начинаем поиск места для товара "${product.name}":`, {
+      shelfX: shelf.x,
+      shelfWidth: shelf.width,
+      productWidth: productWidthPx,
+      spacing: spacingPx,
+      totalProductsOnShelf: productsOnShelf.length,
+      occupiedSpaces: occupiedSpaces.length
+    })
 
     // Проходим по всем занятым участкам и ищем место
     for (const space of occupiedSpaces) {
-      if (nextX + productWidthPx + spacingPx <= space.start) {
-        // Товар помещается перед этим участком
-        console.log(`✅ Место найдено перед товаром ${space.product}, позиция X: ${nextX}`)
+      console.log(`🔍 Проверяем место: nextX=${nextX}, productWidth=${productWidthPx}, spacing=${spacingPx}, spaceStart=${space.start}`)
+      if (nextX + productWidthPx <= space.start) {
+        // Товар помещается перед этим участком (без дополнительного spacing)
+        console.log(`✅ Товар помещается перед "${space.product}" в позицию X=${nextX}`)
         break
       }
       // Сдвигаем позицию за текущий участок
+      const oldNextX = nextX
       nextX = space.end + spacingPx
-      console.log(`➡️ Сдвигаем позицию за товар ${space.product}, новая позиция X: ${nextX}`)
+      console.log(`➡️ Сдвигаем позицию: ${oldNextX} → ${nextX} (за товаром "${space.product}")`)
     }
 
     // Проверяем, помещается ли товар в оставшееся место на полке
@@ -232,8 +734,6 @@ export default function PlanogramEditor() {
       toast.error(`Недостаточно места на полке (нужно ${product.width}мм, доступно ${availableWidthMm}мм)`)
       return
     }
-
-    console.log('🎯 Финальная позиция товара X:', nextX, 'Y:', productY)
 
     // Создаем новый товар
     const newProduct: ShelfItem = {
@@ -247,18 +747,42 @@ export default function PlanogramEditor() {
       type: 'product'
     }
 
+    console.log(`🎯 Создаем новый товар "${product.name}":`, {
+      finalX: snapToGrid(nextX),
+      finalY: snapToGrid(productY),
+      width: productWidthPx,
+      height: productHeightPx,
+      shelfId: shelf.id,
+      shelfY: shelf.y,
+      shelfHeight: shelf.height,
+      shelfBottom: shelf.y + shelf.height,
+      isTopShelf: isTopShelfOfRack
+    })
+
     setItems(prev => [...prev, newProduct])
     
     // Показываем информацию о размещении
     const remainingWidthMm = Math.round((shelfRightEdge - nextX - productWidthPx) / settings.pixelsPerMm)
     toast.success(`Товар "${product.name}" добавлен. Свободно: ${remainingWidthMm}мм`)
-  }, [selectedId, items, snapToGrid, mmToPixels, settings.pixelsPerMm])
+  }, [selectedId, items, racks, snapToGrid, mmToPixels, settings.pixelsPerMm])
 
   // Функция для перемещения товаров к нижней границе полки
   const repositionProductsOnShelf = useCallback((shelfId: string) => {
     setItems(prev => {
-      // Находим полку в актуальном состоянии
-      const shelf = prev.find(item => item.id === shelfId)
+      // Находим полку сначала в items (отдельные полки), затем в racks (полки стеллажей)
+      let shelf = prev.find(item => item.id === shelfId)
+      
+      if (!shelf) {
+        // Ищем в полках стеллажей
+        for (const rack of racks) {
+          const rackShelf = rack.shelves.find(s => s.id === shelfId)
+          if (rackShelf) {
+            shelf = rackShelf
+            break
+          }
+        }
+      }
+      
       if (!shelf) return prev
 
       return prev.map(item => {
@@ -266,12 +790,12 @@ export default function PlanogramEditor() {
         if (item.type === 'product' && 
             item.x >= shelf.x - 10 && // небольшая толерантность слева
             item.x < shelf.x + shelf.width + 10 && // и справа
-            item.y >= shelf.y - 10 && // и сверху 
-            item.y < shelf.y + shelf.height + 100) { // и снизу с большей толерантностью
+            item.y >= shelf.y - 50 && // товар находится рядом с полкой (с толерантностью)
+            item.y <= shelf.y + shelf.height + 50) { // в пределах полки
           
-          // Перемещаем товар к нижней границе полки
-          const newY = shelf.y + shelf.height - item.height - 5 // 5px отступ от дна
-          console.log('🔄 Перемещаем товар:', item.product?.name, 'с Y:', item.y, 'на Y:', newY)
+          // Перемещаем товар ВНУТРИ полки (прижимаем к нижней границе)
+          const shelfBottomY = shelf.y + shelf.height
+          const newY = shelfBottomY - item.height // товар размещается ВНУТРИ полки
           return {
             ...item,
             y: snapToGrid(newY)
@@ -280,14 +804,46 @@ export default function PlanogramEditor() {
         return item
       })
     })
-  }, [snapToGrid])
+  }, [snapToGrid, racks])
 
   const deleteItem = useCallback((id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id))
-    setRacks(prev => prev.filter(rack => rack.id !== id))
+    // Проверяем, удаляется ли стеллаж
+    const rackToDelete = racks.find(rack => rack.id === id)
+    
+    if (rackToDelete) {
+      // Удаляем стеллаж и все его полки и товары
+      const shelfIds = rackToDelete.shelves.map(shelf => shelf.id)
+      
+      // Находим все товары на полках этого стеллажа
+      const productsToDelete = items.filter(item => 
+        item.type === 'product' && 
+        shelfIds.some(shelfId => {
+          // Ищем полку в стеллажах, а не в items
+          const shelf = rackToDelete.shelves.find(s => s.id === shelfId)
+          if (!shelf) return false
+          return item.x >= shelf.x - 10 && 
+                 item.x < shelf.x + shelf.width + 10 && 
+                 item.y >= shelf.y && // товар находится ВНУТРИ полки
+                 item.y + item.height <= shelf.y + shelf.height + 10 // и помещается по высоте
+        })
+      )
+      
+      // Удаляем стеллаж, его полки и товары
+      setRacks(prev => prev.filter(rack => rack.id !== id))
+      setItems(prev => prev.filter(item => 
+        !shelfIds.includes(item.id) && 
+        !productsToDelete.some(product => product.id === item.id)
+      ))
+      
+      toast.success(`Стеллаж удален вместе с ${rackToDelete.shelves.length} полками и ${productsToDelete.length} товарами`)
+    } else {
+      // Обычное удаление элемента
+      setItems(prev => prev.filter(item => item.id !== id))
+      toast.success('Элемент удален')
+    }
+    
     setSelectedId(null)
-    toast.success('Элемент удален')
-  }, [])
+  }, [racks, items])
 
   const exportToPNG = useCallback(() => {
     if (stageRef.current) {
@@ -340,7 +896,26 @@ export default function PlanogramEditor() {
   }, [selectedId, deleteItem])
 
   // Получить выбранный элемент
-  const selectedItem = selectedId ? (items.find(item => item.id === selectedId) || racks.find(rack => rack.id === selectedId)) : null
+  const selectedItem = (() => {
+    if (!selectedId) return null
+    
+    // Ищем сначала в items (отдельные полки, товары)
+    const itemFound = items.find(item => item.id === selectedId)
+    if (itemFound) return itemFound
+    
+    // Ищем среди стеллажей
+    const rackFound = racks.find(rack => rack.id === selectedId)
+    if (rackFound) return rackFound
+    
+    // Ищем среди полок стеллажей
+    for (const rack of racks) {
+      const shelfFound = rack.shelves.find(shelf => shelf.id === selectedId)
+      if (shelfFound) return shelfFound
+    }
+    
+    return null
+  })()
+  
   const isRack = selectedItem && 'levels' in selectedItem
   const isShelf = selectedItem && !isRack && selectedItem.type === 'shelf'
 
@@ -573,6 +1148,7 @@ export default function PlanogramEditor() {
               }
             }}
           >
+            {/* Слой сетки */}
             <Layer>
               {/* Grid */}
               {settings.showGrid && (() => {
@@ -607,76 +1183,130 @@ export default function PlanogramEditor() {
                   </>
                 )
               })()}
+            </Layer>
 
-              {/* 3D Racks */}
-              {settings.show3D && racks.map((rack) => (
+            {/* Слой стеллажей */}
+            <Layer>
+              {racks.map((rack) => (
                 <RackSystem3D
                   key={rack.id}
                   rack={rack}
                   settings={settings}
-                  x={50}
-                  y={50}
+                  x={rack.x}
+                  y={rack.y}
                   isSelected={selectedId === rack.id}
                   onClick={() => setSelectedId(rack.id)}
+                  onDragEnd={(e) => {
+                    const newX = snapToGrid(e.target.x())
+                    const newY = snapToGrid(e.target.y())
+                    
+                    // Обновляем позицию стеллажа
+                    setRacks(prev => prev.map(r => 
+                      r.id === rack.id 
+                        ? { ...r, x: newX, y: newY }
+                        : r
+                    ))
+                    
+                    // Обновляем позиции полок стеллажа
+                    const deltaX = newX - rack.x
+                    const deltaY = newY - rack.y
+                    
+                    setItems(prev => prev.map(item => {
+                      if (rack.shelves.some(shelf => shelf.id === item.id)) {
+                        return { ...item, x: item.x + deltaX, y: item.y + deltaY }
+                      }
+                      return item
+                    }))
+                  }}
                 />
               ))}
+            </Layer>
 
-              {/* Items */}
-              {items.map((item) => {
-                if (item.type === 'shelf') {
-                  return (
-                    <EnhancedShelf
-                      key={item.id}
-                      shelf={item}
-                      settings={settings}
-                      isSelected={selectedId === item.id}
-                      onClick={() => setSelectedId(item.id)}
-                      onDragEnd={(e) => {
-                        const newX = snapToGrid(e.target.x())
-                        const newY = snapToGrid(e.target.y())
-                        setItems(prev => prev.map(i => 
-                          i.id === item.id 
-                            ? { ...i, x: newX, y: newY }
-                            : i
-                        ))
-                      }}
-                      onTransformEnd={(e) => {
-                        console.log('🔄 Transform end:', e)
-                        setItems(prev => prev.map(i => 
-                          i.id === item.id 
-                            ? { 
-                                ...i, 
-                                width: snapToGrid(e.width), 
-                                height: snapToGrid(e.height) 
-                              }
-                            : i
-                        ))
-                        // Перемещаем товары к новой нижней границе полки
-                        setTimeout(() => repositionProductsOnShelf(item.id), 200)
-                      }}
-                    />
-                  )
-                } else {
-                  return (
-                    <PlanogramItem
-                      key={item.id}
-                      item={item}
-                      isSelected={selectedId === item.id}
-                      image={item.product?.imageUrl ? images[item.product.imageUrl] : undefined}
-                      onClick={() => setSelectedId(item.id)}
-                      onDragEnd={(e) => {
-                        const newX = snapToGrid(e.target.x())
-                        const newY = snapToGrid(e.target.y())
-                        setItems(prev => prev.map(i => 
-                          i.id === item.id 
-                            ? { ...i, x: newX, y: newY }
-                            : i
-                        ))
-                      }}
-                    />
-                  )
-                }
-              })}
+            {/* Слой полок стеллажей */}
+            <Layer>
+              {(() => {
+                const rackShelves = racks.flatMap(rack => rack.shelves)
+                console.log('🏗️ Отрисовка полок стеллажей:', {
+                  racksCount: racks.length,
+                  totalShelves: rackShelves.length,
+                  shelves: rackShelves.map(s => ({
+                    id: s.id,
+                    x: s.x,
+                    y: s.y,
+                    width: s.width,
+                    height: s.height
+                  }))
+                })
+                return rackShelves.map(shelf => (
+                  <EnhancedShelf
+                    key={shelf.id}
+                    shelf={shelf}
+                    settings={settings}
+                    isSelected={selectedId === shelf.id}
+                    onClick={() => setSelectedId(shelf.id)}
+                    onDragEnd={() => {}} // Полки стеллажей не должны перемещаться независимо
+                    onTransformEnd={() => {}} // Полки стеллажей не должны изменять размер независимо
+                  />
+                ))
+              })()}
+            </Layer>
+
+            {/* Слой отдельных полок */}
+            <Layer>
+              {items.filter(item => item.type === 'shelf').map((item) => (
+                  <EnhancedShelf
+                    key={item.id}
+                    shelf={item}
+                    settings={settings}
+                    isSelected={selectedId === item.id}
+                    onClick={() => setSelectedId(item.id)}
+                    onDragEnd={(e) => {
+                      const newX = snapToGrid(e.target.x())
+                      const newY = snapToGrid(e.target.y())
+                      setItems(prev => prev.map(i => 
+                        i.id === item.id 
+                          ? { ...i, x: newX, y: newY }
+                          : i
+                      ))
+                    }}
+                    onTransformEnd={(e) => {
+                      console.log('🔄 Transform end:', e)
+                      setItems(prev => prev.map(i => 
+                        i.id === item.id 
+                          ? { 
+                              ...i, 
+                              width: snapToGrid(e.width), 
+                              height: snapToGrid(e.height) 
+                            }
+                          : i
+                      ))
+                      // Перемещаем товары к новой нижней границе полки
+                      setTimeout(() => repositionProductsOnShelf(item.id), 200)
+                    }}
+                  />
+                ))}
+            </Layer>
+
+            {/* Слой товаров (поверх всего) */}
+            <Layer>
+              {items.filter(item => item.type === 'product').map((item) => (
+                <PlanogramItem
+                  key={item.id}
+                  item={item}
+                  isSelected={selectedId === item.id}
+                  image={item.product?.imageUrl ? images[item.product.imageUrl] : undefined}
+                  onClick={() => setSelectedId(item.id)}
+                  onDragEnd={(e) => {
+                    const newX = snapToGrid(e.target.x())
+                    const newY = snapToGrid(e.target.y())
+                    setItems(prev => prev.map(i => 
+                      i.id === item.id 
+                        ? { ...i, x: newX, y: newY }
+                        : i
+                    ))
+                  }}
+                />
+              ))}
             </Layer>
           </Stage>
         </div>
@@ -726,11 +1356,7 @@ export default function PlanogramEditor() {
                           value={selectedItem.levels}
                           onChange={(e) => {
                             const newLevels = Math.max(1, Math.min(8, Number(e.target.value)))
-                            setRacks(prev => prev.map(rack => 
-                              rack.id === selectedId 
-                                ? { ...rack, levels: newLevels }
-                                : rack
-                            ))
+                            updateRackShelves(selectedItem.id, newLevels)
                           }}
                           className="input w-full text-sm h-8"
                           min="1"
@@ -746,11 +1372,7 @@ export default function PlanogramEditor() {
                           value={selectedItem.width}
                           onChange={(e) => {
                             const newWidth = Number(e.target.value)
-                            setRacks(prev => prev.map(rack => 
-                              rack.id === selectedId 
-                                ? { ...rack, width: newWidth }
-                                : rack
-                            ))
+                            updateRackDimensions(selectedItem.id, { width: newWidth })
                           }}
                           className="input w-full text-sm h-8"
                           min="400"
@@ -766,11 +1388,7 @@ export default function PlanogramEditor() {
                           value={selectedItem.height}
                           onChange={(e) => {
                             const newHeight = Number(e.target.value)
-                            setRacks(prev => prev.map(rack => 
-                              rack.id === selectedId 
-                                ? { ...rack, height: newHeight }
-                                : rack
-                            ))
+                            updateRackDimensions(selectedItem.id, { height: newHeight })
                           }}
                           className="input w-full text-sm h-8"
                           min="800"
@@ -786,11 +1404,7 @@ export default function PlanogramEditor() {
                           value={selectedItem.depth}
                           onChange={(e) => {
                             const newDepth = Number(e.target.value)
-                            setRacks(prev => prev.map(rack => 
-                              rack.id === selectedId 
-                                ? { ...rack, depth: newDepth }
-                                : rack
-                            ))
+                            updateRackDimensions(selectedItem.id, { depth: newDepth })
                           }}
                           className="input w-full text-sm h-8"
                           min="200"

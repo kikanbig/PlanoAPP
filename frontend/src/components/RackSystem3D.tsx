@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { Group, Rect, Line, Text } from 'react-konva'
 import { RackSystem, PlanogramSettings } from '../types'
 
@@ -9,6 +9,7 @@ interface RackSystem3DProps {
   y: number
   isSelected?: boolean
   onClick?: () => void
+  onDragEnd?: (e: any) => void
 }
 
 export default function RackSystem3D({ 
@@ -17,7 +18,8 @@ export default function RackSystem3D({
   x, 
   y, 
   isSelected, 
-  onClick 
+  onClick,
+  onDragEnd
 }: RackSystem3DProps) {
   const mmToPixels = (mm: number) => mm * settings.pixelsPerMm
   
@@ -44,7 +46,9 @@ export default function RackSystem3D({
     <Group
       x={x}
       y={y}
+      draggable
       onClick={onClick}
+      onDragEnd={onDragEnd}
     >
       {/* Задняя стенка (если нужна) */}
       {(rack.type === 'wall' || rack.type === 'endcap') && (
@@ -121,57 +125,30 @@ export default function RackSystem3D({
         />
       </Group>
       
-      {/* Полки */}
+      {/* Индикаторы уровней стеллажа */}
       {Array.from({ length: rack.levels }, (_, level) => {
-        const shelfY = (rackHeight / (rack.levels + 1)) * (level + 1) + 20
-        const shelfThickness = 8
+        const levelY = (rackHeight / (rack.levels + 1)) * (level + 1) + 20
         
         return (
-          <Group key={`shelf-${level}`}>
-            {/* Полка */}
-            <Rect
-              x={5}
-              y={shelfY}
-              width={rackWidth - 10}
-              height={shelfThickness}
-              fill='#D1D5DB'
+          <Group key={`level-indicator-${level}`}>
+            {/* Тонкая линия для обозначения уровня */}
+            <Line
+              points={[5, levelY, rackWidth - 5, levelY]}
               stroke='#9CA3AF'
-              strokeWidth={1}
-              cornerRadius={2}
+              strokeWidth={0.5}
+              dash={[2, 2]}
+              opacity={0.5}
             />
-            
-            {/* 3D эффект полки */}
-            {settings.show3D && (
-              <Rect
-                x={7}
-                y={shelfY + 2}
-                width={rackWidth - 10}
-                height={shelfThickness}
-                fill='#9CA3AF'
-                opacity={0.3}
-                cornerRadius={2}
-              />
-            )}
             
             {/* Номер уровня */}
             <Text
               x={10}
-              y={shelfY - 15}
+              y={levelY - 15}
               text={`Ур.${level + 1}`}
               fontSize={8}
               fill='#6B7280'
+              opacity={0.7}
             />
-            
-            {/* Размеры полки */}
-            {settings.showDimensions && level === 0 && (
-              <Text
-                x={rackWidth + 10}
-                y={shelfY - 5}
-                text={`${rack.width}×${rack.depth}мм`}
-                fontSize={10}
-                fill='#6B7280'
-              />
-            )}
           </Group>
         )
       })}
