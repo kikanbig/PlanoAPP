@@ -96,8 +96,12 @@ app.use('/uploads', express.static(uploadsDir))
 
 // Serve static files from frontend build (для production)
 if (process.env.NODE_ENV === 'production') {
-  const frontendDistPath = path.join(__dirname, '../frontend/dist')
+  const frontendDistPath = path.join(__dirname, '../../frontend/dist')
+  console.log('Looking for frontend dist at:', frontendDistPath)
+  console.log('Dist path exists:', fs.existsSync(frontendDistPath))
+  
   if (fs.existsSync(frontendDistPath)) {
+    console.log('Serving static files from:', frontendDistPath)
     app.use(express.static(frontendDistPath))
     
     // Handle React Router - все неизвестные маршруты отдаем index.html
@@ -106,7 +110,20 @@ if (process.env.NODE_ENV === 'production') {
       if (req.path.startsWith('/api/') || req.path.startsWith('/uploads/')) {
         return next()
       }
+      console.log('Serving React app for path:', req.path)
       res.sendFile(path.join(frontendDistPath, 'index.html'))
+    })
+  } else {
+    console.error('Frontend dist directory not found at:', frontendDistPath)
+    console.log('Current __dirname:', __dirname)
+    
+    // Fallback: serve a basic response for root
+    app.get('/', (req: Request, res: Response) => {
+      res.json({
+        message: 'PlanoAPP API is running',
+        status: 'Frontend not built or not found',
+        api_health: '/api/health'
+      })
     })
   }
 }
@@ -310,8 +327,27 @@ app.delete('/api/planograms/:id', async (req: Request, res: Response) => {
   }
 })
 
+// Default route for non-production environment
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/', (req: Request, res: Response) => {
+    res.json({
+      message: 'PlanoAPP API is running',
+      status: 'Development mode',
+      api_health: '/api/health',
+      available_endpoints: [
+        'GET /api/health',
+        'GET /api/products',
+        'POST /api/products',
+        'GET /api/planograms',
+        'POST /api/planograms'
+      ]
+    })
+  })
+}
+
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
+  console.log('404 for path:', req.path)
   res.status(404).json({ error: 'Endpoint not found' })
 })
 

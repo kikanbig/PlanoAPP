@@ -41,6 +41,9 @@ RUN npx tsc --project backend/tsconfig.json
 # Собираем frontend
 RUN cd frontend && npm run build
 
+# Проверяем, что frontend собрался
+RUN echo "Frontend build contents:" && ls -la frontend/dist/
+
 # Создаем директорию для загрузок
 RUN mkdir -p /app/backend/uploads
 
