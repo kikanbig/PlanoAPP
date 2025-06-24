@@ -90,7 +90,7 @@ export default function PlanogramEditor() {
         resolve(img)
       }
       img.onerror = reject
-      img.src = imageUrl.startsWith('/') ? `http://localhost:4000${imageUrl}` : imageUrl
+      img.src = imageUrl.startsWith('/') ? `${window.location.origin}${imageUrl}` : imageUrl
     })
   }, [images])
 
@@ -1109,7 +1109,7 @@ export default function PlanogramEditor() {
                   </div>
                   {product.imageUrl ? (
                     <img
-                      src={product.imageUrl.startsWith('/') ? `http://localhost:4000${product.imageUrl}` : product.imageUrl}
+                      src={product.imageUrl.startsWith('/') ? `${window.location.origin}${product.imageUrl}` : product.imageUrl}
                       alt={product.name}
                       className="w-8 h-8 rounded border border-gray-300 object-cover"
                     />

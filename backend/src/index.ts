@@ -230,8 +230,10 @@ app.post('/api/upload', upload.single('image'), (req: Request, res: Response) =>
     }
 
     const fileUrl = `/uploads/${req.file.filename}`
+    console.log('File uploaded:', fileUrl)
     res.json({ 
-      url: fileUrl,
+      imageUrl: fileUrl, // Изменил на imageUrl для соответствия фронтенду
+      url: fileUrl, // Оставил для обратной совместимости
       filename: req.file.filename,
       originalName: req.file.originalname,
       size: req.file.size

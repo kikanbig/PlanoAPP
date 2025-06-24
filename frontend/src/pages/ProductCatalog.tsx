@@ -154,7 +154,7 @@ export default function ProductCatalog() {
               <div className="flex items-center justify-between mb-4">
                 {product.imageUrl ? (
                   <img
-                    src={product.imageUrl.startsWith('/') ? `http://localhost:3003${product.imageUrl}` : product.imageUrl}
+                    src={product.imageUrl.startsWith('/') ? `${window.location.origin}${product.imageUrl}` : product.imageUrl}
                     alt={product.name}
                     className="w-12 h-12 rounded-lg border border-gray-300 object-cover"
                   />

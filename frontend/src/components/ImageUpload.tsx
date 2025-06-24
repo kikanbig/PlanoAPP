@@ -62,7 +62,7 @@ export default function ImageUpload({ imageUrl, onImageUploaded, onImageRemoved 
       {imageUrl ? (
         <div className="relative inline-block">
           <img
-            src={imageUrl.startsWith('/') ? `http://localhost:3003${imageUrl}` : imageUrl}
+            src={imageUrl.startsWith('/') ? `${window.location.origin}${imageUrl}` : imageUrl}
             alt="Product"
             className="w-24 h-24 object-cover rounded-lg border border-gray-300"
           />
