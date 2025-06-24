@@ -1,6 +1,6 @@
 {
   "name": "planogram-app",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Современное приложение для создания планограмм",
   "main": "index.js",
   "scripts": {
@@ -11,6 +11,7 @@
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
     "start": "cd backend && npm start",
+    "start:backend": "cd backend && npm start",
     "start:prod": "cd backend && npm run start:prod",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install"
   },

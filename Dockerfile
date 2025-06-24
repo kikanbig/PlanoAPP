@@ -1,8 +1,8 @@
 # Используем Node.js 18 на Ubuntu для лучшей совместимости с Rollup
 FROM node:18-bullseye-slim
 
-# CACHE BUST - Принудительная пересборка 2025-06-24 17:10 Ubuntu fix
-ENV CACHE_BUST=20250624-1710
+# CACHE BUST - Принудительная пересборка 2025-06-24 17:35 start:backend fix
+ENV CACHE_BUST=20250624-1735
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
