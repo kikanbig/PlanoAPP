@@ -3,13 +3,13 @@
 nixPkgs = ["nodejs_18", "python3", "gcc"]
 
 [phases.install]
-cmd = "npm ci --only=production --no-optional --timeout=120000"
+cmd = "npm ci --only=production --no-optional --timeout=120000 && cd backend && npm ci --only=production --no-optional"
 
 [phases.build]
-cmd = "npm run build"
+cmd = "cd backend && npm run build"
 
 [start]
-cmd = "npm run start:backend"
+cmd = "cd backend && npm start"
 
 [variables]
 NODE_ENV = "production"
