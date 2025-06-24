@@ -1,8 +1,8 @@
 # Используем Node.js 18 на более легком образе для быстрой сборки
 FROM node:18-alpine
 
-# CACHE BUST - Принудительная пересборка 2025-06-24 19:30 Fixed workspace deps
-ENV CACHE_BUST=20250624-1930
+# CACHE BUST - Принудительная пересборка 2025-06-24 19:40 Fixed TS build path
+ENV CACHE_BUST=20250624-1940
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -35,8 +35,8 @@ RUN echo "Workspace node_modules/@types contents:" && ls -la node_modules/@types
 RUN echo "Backend directory contents:" && ls -la backend/
 RUN echo "TypeScript version:" && npx tsc --version
 
-# Собираем backend (TypeScript найдет модули в workspace node_modules)
-RUN cd backend && npm run build
+# Собираем backend из корневой директории где доступны все node_modules
+RUN npx tsc --project backend/tsconfig.json
 
 # Собираем frontend
 RUN cd frontend && npm run build
