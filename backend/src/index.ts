@@ -6,6 +6,8 @@ import dotenv from 'dotenv'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import { v2 as cloudinary } from 'cloudinary'
+import { CloudinaryStorage } from 'multer-storage-cloudinary'
 import { createDatabaseAdapter } from './database'
 
 // Import custom types
@@ -27,22 +29,49 @@ const db = createDatabaseAdapter()
 const app = express()
 const PORT = process.env.PORT || 4000
 
-// Ensure uploads directory exists
+// Настройка Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+  api_key: process.env.CLOUDINARY_API_KEY || 'demo',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'demo'
+})
+
+// Ensure uploads directory exists (для локальной разработки)
 const uploadsDir = path.join(__dirname, '../uploads')
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req: Request, file: MulterFile, cb: DestinationCallback) => {
-    cb(null, uploadsDir)
-  },
-  filename: (req: Request, file: MulterFile, cb: FilenameCallback) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-  }
-})
+// Configure multer для загрузки файлов
+let storage: multer.StorageEngine
+
+if (process.env.NODE_ENV === 'production' && process.env.CLOUDINARY_CLOUD_NAME) {
+  // Production: используем Cloudinary
+  console.log('📸 Using Cloudinary for file storage')
+  storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'planogram-images',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      resource_type: 'image',
+      transformation: [
+        { width: 800, height: 800, crop: 'limit', quality: 'auto' }
+      ]
+    } as any
+  })
+} else {
+  // Development: используем локальное хранилище
+  console.log('💾 Using local storage for file storage')
+  storage = multer.diskStorage({
+    destination: (req: Request, file: MulterFile, cb: DestinationCallback) => {
+      cb(null, uploadsDir)
+    },
+    filename: (req: Request, file: MulterFile, cb: FilenameCallback) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+    }
+  })
+}
 
 const upload = multer({ 
   storage: storage,
@@ -91,8 +120,25 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next()
 })
 
-// Serve uploaded files
-app.use('/uploads', express.static(uploadsDir))
+// Serve uploaded files с проверкой существования
+app.use('/uploads', (req: Request, res: Response, next: NextFunction) => {
+  const filePath = path.join(uploadsDir, req.path)
+  
+  // Проверяем существует ли файл
+  if (fs.existsSync(filePath)) {
+    // Файл существует, обслуживаем его
+    express.static(uploadsDir)(req, res, next)
+  } else {
+    // Файл не существует, возвращаем 404 с информативным сообщением
+    console.log(`❌ Файл не найден: ${filePath}`)
+    console.log(`📁 Доступные файлы:`, fs.readdirSync(uploadsDir).slice(0, 5))
+    res.status(404).json({ 
+      error: 'Image not found',
+      message: 'File was uploaded to Railway but lost during redeployment',
+      suggestion: 'Please re-upload the image'
+    })
+  }
+})
 
 // Serve static files from frontend build (для production)
 if (process.env.NODE_ENV === 'production') {
@@ -229,14 +275,25 @@ app.post('/api/upload', upload.single('image'), (req: Request, res: Response) =>
       return res.status(400).json({ error: 'No file uploaded' })
     }
 
-    const fileUrl = `/uploads/${req.file.filename}`
-    console.log('File uploaded:', fileUrl)
+    let fileUrl: string
+    
+    if (process.env.NODE_ENV === 'production' && process.env.CLOUDINARY_CLOUD_NAME) {
+      // Cloudinary: используем прямой URL
+      fileUrl = (req.file as any).path || (req.file as any).secure_url
+      console.log('File uploaded to Cloudinary:', fileUrl)
+    } else {
+      // Local: используем относительный путь
+      fileUrl = `/uploads/${req.file.filename}`
+      console.log('File uploaded locally:', fileUrl)
+    }
+    
     res.json({ 
-      imageUrl: fileUrl, // Изменил на imageUrl для соответствия фронтенду
-      url: fileUrl, // Оставил для обратной совместимости
+      imageUrl: fileUrl,
+      url: fileUrl, // Для обратной совместимости
       filename: req.file.filename,
       originalName: req.file.originalname,
-      size: req.file.size
+      size: req.file.size,
+      storage: process.env.NODE_ENV === 'production' ? 'cloudinary' : 'local'
     })
   } catch (error) {
     console.error('Error uploading file:', error)
