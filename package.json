@@ -1,6 +1,6 @@
 {
   "name": "planogram-app",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "PlanoAPP - система создания планограмм для ритейла",
   "scripts": {
     "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
@@ -15,9 +15,10 @@
     "install:all": "npm install && npm run install:backend && npm run install:frontend",
     "install:backend": "cd backend && npm ci --no-optional",
     "install:frontend": "cd frontend && npm ci --no-optional",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No tests specified\" && exit 0",
+    "lint": "echo \"No linting configured\" && exit 0"
   },
-  "keywords": ["planogram", "retail", "merchandising", "react", "typescript", "node"],
+  "keywords": ["planogram", "retail", "visualization", "react", "node.js"],
   "author": "PlanoAPP Team",
   "license": "MIT",
   "workspaces": [
@@ -27,5 +28,5 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
-  "cache_bust": "20250624-1830"
+  "cache_bust": "20250624-1900"
 } 

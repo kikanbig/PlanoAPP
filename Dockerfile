@@ -1,8 +1,8 @@
 # Используем Node.js 18 на более легком образе для быстрой сборки
 FROM node:18-alpine
 
-# CACHE BUST - Принудительная пересборка 2025-06-24 18:30 Fixed deps installation
-ENV CACHE_BUST=20250624-1830
+# CACHE BUST - Принудительная пересборка 2025-06-24 19:00 Fixed TypeScript deps
+ENV CACHE_BUST=20250624-1900
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -15,32 +15,30 @@ COPY package*.json ./
 COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 
-# Очищаем npm кэш для обеспечения чистой установки
-RUN npm cache clean --force
+# Полностью очищаем npm кэш и удаляем node_modules
+RUN npm cache clean --force && rm -rf node_modules
 
 # Устанавливаем зависимости для корневого уровня
 RUN npm ci --timeout=60000
 
-# Устанавливаем зависимости backend с принудительной установкой всех пакетов
-RUN cd backend && npm cache clean --force && npm ci --timeout=60000
+# Полностью переустанавливаем зависимости backend
+RUN cd backend && rm -rf node_modules package-lock.json && npm cache clean --force
+RUN cd backend && npm install --timeout=60000
+
+# Проверяем, что все критические модули backend установлены
+RUN cd backend && node -e "console.log('Testing module imports...'); require('express'); require('cors'); require('helmet'); require('compression'); require('dotenv'); require('multer'); console.log('All modules found successfully!');"
 
 # Устанавливаем зависимости frontend
-RUN cd frontend && npm cache clean --force && npm ci --timeout=60000
+RUN cd frontend && rm -rf node_modules && npm cache clean --force && npm ci --timeout=60000
 
 # Копируем исходный код
 COPY . .
 
-# Проверяем что все зависимости backend установлены
-RUN cd backend && npm ls express @types/express helmet compression cors dotenv multer typescript || true
-
-# Собираем backend
+# Собираем backend с подробным выводом ошибок
 RUN cd backend && npm run build
 
 # Собираем frontend
 RUN cd frontend && npm run build
-
-# Очищаем devDependencies после сборки для уменьшения размера образа
-RUN cd frontend && npm prune --production
 
 # Создаем директорию для загрузок
 RUN mkdir -p /app/backend/uploads

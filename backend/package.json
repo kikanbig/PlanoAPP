@@ -1,6 +1,6 @@
 {
   "name": "planogram-backend",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "description": "Backend API для PlanoAPP - системы создания планограмм",
   "main": "dist/index.js",
   "scripts": {
@@ -24,17 +24,22 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "helmet": "^8.1.0",
-    "multer": "^1.4.5-lts.1",
-    "pg": "^8.16.2",
+    "multer": "^1.4.5-lts.2",
+    "pg": "^8.13.2",
     "prisma": "^5.6.0",
     "sqlite3": "^5.1.7",
-    "tsx": "^4.6.2",
-    "typescript": "^5.3.3",
-    "zod": "^3.22.4"
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^6.10.0",
-    "@typescript-eslint/parser": "^6.10.0",
-    "eslint": "^8.53.0"
-  }
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "eslint": "^8.55.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["api", "backend", "planogram", "express", "typescript"],
+  "author": "PlanoAPP Team",
+  "license": "MIT"
 }
