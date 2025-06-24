@@ -1,0 +1,16 @@
+# Nixpacks конфигурация для Railway оптимизации
+[phases.setup]
+nixPkgs = ["nodejs_18", "python3", "gcc"]
+
+[phases.install]
+cmd = "npm ci --only=production --no-optional --timeout=120000"
+
+[phases.build]
+cmd = "npm run build"
+
+[start]
+cmd = "npm run start:backend"
+
+[variables]
+NODE_ENV = "production"
+NPM_CONFIG_PRODUCTION = "false" 
