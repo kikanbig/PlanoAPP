@@ -6,8 +6,6 @@ import dotenv from 'dotenv'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import { v2 as cloudinary } from 'cloudinary'
-import { CloudinaryStorage } from 'multer-storage-cloudinary'
 import { createDatabaseAdapter } from './database'
 
 // Import custom types
@@ -29,49 +27,32 @@ const db = createDatabaseAdapter()
 const app = express()
 const PORT = process.env.PORT || 4000
 
-// Настройка Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
-  api_key: process.env.CLOUDINARY_API_KEY || 'demo',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'demo'
-})
+// Настройка папки для загруженных файлов
+// В production на Railway используем Volume mount
+// В development используем локальную папку
+const uploadsDir = process.env.NODE_ENV === 'production' 
+  ? '/app/uploads'  // Railway Volume mount point
+  : path.join(__dirname, '../uploads')  // Локальная разработка
 
-// Ensure uploads directory exists (для локальной разработки)
-const uploadsDir = path.join(__dirname, '../uploads')
+// Ensure uploads directory exists
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
+  console.log(`📁 Created uploads directory: ${uploadsDir}`)
 }
+
+console.log(`📁 Using uploads directory: ${uploadsDir}`)
+console.log(`📁 Directory exists: ${fs.existsSync(uploadsDir)}`)
 
 // Configure multer для загрузки файлов
-let storage: multer.StorageEngine
-
-if (process.env.NODE_ENV === 'production' && process.env.CLOUDINARY_CLOUD_NAME) {
-  // Production: используем Cloudinary
-  console.log('📸 Using Cloudinary for file storage')
-  storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'planogram-images',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-      resource_type: 'image',
-      transformation: [
-        { width: 800, height: 800, crop: 'limit', quality: 'auto' }
-      ]
-    } as any
-  })
-} else {
-  // Development: используем локальное хранилище
-  console.log('💾 Using local storage for file storage')
-  storage = multer.diskStorage({
-    destination: (req: Request, file: MulterFile, cb: DestinationCallback) => {
-      cb(null, uploadsDir)
-    },
-    filename: (req: Request, file: MulterFile, cb: FilenameCallback) => {
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-    }
-  })
-}
+const storage = multer.diskStorage({
+  destination: (req: Request, file: MulterFile, cb: DestinationCallback) => {
+    cb(null, uploadsDir)
+  },
+  filename: (req: Request, file: MulterFile, cb: FilenameCallback) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
+  }
+})
 
 const upload = multer({ 
   storage: storage,
@@ -275,17 +256,11 @@ app.post('/api/upload', upload.single('image'), (req: Request, res: Response) =>
       return res.status(400).json({ error: 'No file uploaded' })
     }
 
-    let fileUrl: string
-    
-    if (process.env.NODE_ENV === 'production' && process.env.CLOUDINARY_CLOUD_NAME) {
-      // Cloudinary: используем прямой URL
-      fileUrl = (req.file as any).path || (req.file as any).secure_url
-      console.log('File uploaded to Cloudinary:', fileUrl)
-    } else {
-      // Local: используем относительный путь
-      fileUrl = `/uploads/${req.file.filename}`
-      console.log('File uploaded locally:', fileUrl)
-    }
+    // Railway Volume: используем относительный путь для всех сред
+    const fileUrl = `/uploads/${req.file.filename}`
+    console.log(`📸 File uploaded to Railway Volume: ${fileUrl}`)
+    console.log(`📁 File path: ${req.file.path}`)
+    console.log(`📊 File size: ${(req.file.size / 1024).toFixed(2)} KB`)
     
     res.json({ 
       imageUrl: fileUrl,
@@ -293,7 +268,7 @@ app.post('/api/upload', upload.single('image'), (req: Request, res: Response) =>
       filename: req.file.filename,
       originalName: req.file.originalname,
       size: req.file.size,
-      storage: process.env.NODE_ENV === 'production' ? 'cloudinary' : 'local'
+      storage: process.env.NODE_ENV === 'production' ? 'railway-volume' : 'local'
     })
   } catch (error) {
     console.error('Error uploading file:', error)
