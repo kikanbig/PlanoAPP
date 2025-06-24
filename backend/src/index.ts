@@ -299,9 +299,19 @@ app.get('/api/planograms/:id', async (req: Request, res: Response) => {
     // Парсим JSON данные планограммы
     try {
       const parsedData = JSON.parse(planogram.data)
+      
+      console.log(`📋 Отправляем планограмму "${planogram.name}" с данными:`, {
+        itemsCount: parsedData.items?.length || 0,
+        racksCount: parsedData.racks?.length || 0,
+        hasSettings: !!parsedData.settings
+      })
+      
       res.json({
-        ...planogram,
-        data: parsedData // Отправляем распарсенные данные
+        id: planogram.id,
+        name: planogram.name,
+        createdAt: planogram.createdAt,
+        updatedAt: planogram.updatedAt,
+        data: parsedData // Данные планограммы в поле data
       })
     } catch (parseError) {
       // Если не удается распарсить, отправляем как есть

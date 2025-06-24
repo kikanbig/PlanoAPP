@@ -18,9 +18,10 @@ export interface Planogram {
   id: string
   name: string
   category?: string
-  items: any[]
-  racks: any[]
-  settings: any
+  items?: any[]
+  racks?: any[]
+  settings?: any
+  data?: any // Поле для хранения данных планограммы как JSON
   createdAt: string
   updatedAt: string
 }

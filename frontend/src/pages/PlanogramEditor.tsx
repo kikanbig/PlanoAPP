@@ -51,9 +51,20 @@ export default function PlanogramEditor() {
     if (planogramId) {
       try {
         const planogram = await apiService.getPlanogram(planogramId)
-        setItems(planogram.items || [])
-        setRacks(planogram.racks || [])
-        setSettings(prev => ({ ...prev, ...planogram.settings }))
+        
+        // Данные планограммы могут быть в поле data или напрямую в объекте
+        const planogramData = planogram.data || planogram
+        
+        console.log('📋 Загружена планограмма:', {
+          name: planogram.name,
+          itemsCount: planogramData.items?.length || 0,
+          racksCount: planogramData.racks?.length || 0,
+          hasSettings: !!planogramData.settings
+        })
+        
+        setItems(planogramData.items || [])
+        setRacks(planogramData.racks || [])
+        setSettings(prev => ({ ...prev, ...planogramData.settings }))
         toast.success(`Планограмма "${planogram.name}" загружена`)
       } catch (error) {
         console.error('Ошибка загрузки планограммы:', error)
