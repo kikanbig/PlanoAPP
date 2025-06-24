@@ -8,9 +8,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Устанавливаем зависимости для backend
+# Устанавливаем зависимости для backend (включаем devDependencies для TypeScript)
 COPY backend/package*.json ./backend/
-RUN cd backend && npm ci --only=production
+RUN cd backend && npm ci
 
 # Устанавливаем зависимости для frontend
 COPY frontend/package*.json ./frontend/
@@ -24,6 +24,9 @@ RUN cd backend && npm run build
 
 # Компилируем frontend
 RUN cd frontend && npm run build
+
+# Очищаем devDependencies после сборки для уменьшения размера образа
+RUN cd backend && npm ci --only=production
 
 # Копируем статические файлы frontend в backend/dist
 RUN cp -r frontend/dist/* backend/dist/ || true
