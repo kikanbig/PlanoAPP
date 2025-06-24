@@ -134,50 +134,25 @@ export default function PlanogramEditor() {
   const createRackShelves = useCallback((rack: RackSystem) => {
     const rackWidthPx = mmToPixels(rack.width)
     const rackHeightPx = mmToPixels(rack.height)
-    const shelfThickness = 20 // толщина полки в мм
-    const shelfThicknessPx = mmToPixels(shelfThickness)
     
-    // Отступы от краев стеллажа
-    const margin = 20 // отступ сверху и снизу в мм
-    const marginPx = mmToPixels(margin)
-    
-    // Доступная высота для размещения полок (исключаем отступы сверху и снизу)
-    const availableHeight = rackHeightPx - 2 * marginPx
-    
-    // Высота одного уровня (равномерно распределяем доступное пространство)
-    const levelHeight = availableHeight / rack.levels
+    // ЕДИНАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
+    // Каждая полка занимает 1/levels часть от общей высоты стеллажа
+    const shelfHeightPx = rackHeightPx / rack.levels
     
     const shelves: ShelfItem[] = []
     
     for (let level = 0; level < rack.levels; level++) {
-      // Полки нумеруются снизу вверх
-      // level = 0 - нижняя полка
-      // level = levels-1 - верхняя полка
-      
-      let shelfY: number
-      let shelfHeight: number
-      
-      if (level === rack.levels - 1) {
-        // Верхняя полка - начинается с верха своего уровня и растет ВВЕРХ (неограниченная высота)
-        // Позиция Y = верх стеллажа + отступ + позиция уровня
-        shelfY = rack.y + marginPx + (rack.levels - 1 - level) * levelHeight
-        shelfHeight = mmToPixels(500) // Разумная высота вместо 2000, чтобы не перекрывать
-      } else {
-        // Все остальные полки - равномерно распределены внутри стеллажа
-        // Считаем позицию от ВЕРХА стеллажа вниз
-        shelfY = rack.y + marginPx + (rack.levels - 1 - level) * levelHeight
-        shelfHeight = levelHeight - shelfThicknessPx // оставляем место для толщины полки
-      }
-      
-      // Минимальная высота для видимости
-      shelfHeight = Math.max(shelfHeight, mmToPixels(30))
+      // Полки располагаются снизу вверх
+      // Нижняя полка (level=0) начинается от нижнего края стеллажа
+      // Каждая следующая полка выше на shelfHeightPx
+      const shelfY = rack.y + rackHeightPx - (level + 1) * shelfHeightPx
       
       const shelf: ShelfItem = {
         id: `${rack.id}-shelf-${level}`,
         x: rack.x,
         y: shelfY,
         width: rackWidthPx,
-        height: shelfHeight,
+        height: shelfHeightPx,
         depth: rack.depth,
         type: 'shelf',
         shelfType: 'standard',
@@ -191,10 +166,25 @@ export default function PlanogramEditor() {
       }
       
       shelves.push(shelf)
+      
+      console.log(`📐 Создана полка ${level} для стеллажа ${rack.id}:`, {
+        id: shelf.id,
+        level,
+        x: shelf.x,
+        y: shelf.y,
+        width: shelf.width,
+        height: shelf.height,
+        heightMm: Math.round(shelf.height / settings.pixelsPerMm),
+        isTopShelf: shelf.isTopShelf,
+        rackHeight: rackHeightPx,
+        rackHeightMm: rack.height
+      })
     }
     
+    console.log(`✅ Создано ${shelves.length} полок для стеллажа ${rack.id} с равномерной высотой ${Math.round(shelfHeightPx / settings.pixelsPerMm)}мм`)
+    
     return shelves
-  }, [mmToPixels])
+  }, [mmToPixels, settings.pixelsPerMm])
 
   const addRack = useCallback((rackType: 'gondola' | 'wall' | 'endcap' | 'island') => {
     const rackId = `rack-${Date.now()}`
@@ -383,6 +373,10 @@ export default function PlanogramEditor() {
     const newRacks = currentRacks.map(rack => {
       const newShelves: ShelfItem[] = []
       
+      // Масштабируем позицию стеллажа
+      const newRackX = rack.x * scaleRatio
+      const newRackY = rack.y * scaleRatio
+      
       // Размеры стеллажа в пикселях с новым масштабом
       const rackWidthPx = rack.width * newScale
       const rackHeightPx = rack.height * newScale
@@ -395,12 +389,12 @@ export default function PlanogramEditor() {
         // Полки располагаются снизу вверх
         // Нижняя полка (i=0) начинается от нижнего края стеллажа
         // Каждая следующая полка выше на shelfHeightPx
-        const shelfY = rack.y + rackHeightPx - (i + 1) * shelfHeightPx
+        const shelfY = newRackY + rackHeightPx - (i + 1) * shelfHeightPx
         
         const shelf: ShelfItem = {
           id: `shelf-${rack.id}-${i}`,
           type: 'shelf' as const,
-          x: rack.x,
+          x: newRackX,
           y: shelfY,
           width: rackWidthPx,
           height: shelfHeightPx,
@@ -420,13 +414,15 @@ export default function PlanogramEditor() {
         width: s.width,
         height: s.height,
         heightMm: Math.round(s.height / newScale),
-        rackY: rack.y,
+        rackY: newRackY,
         rackHeight: rackHeightPx,
-        rackBottom: rack.y + rackHeightPx
+        rackBottom: newRackY + rackHeightPx
       })))
       
       return {
         ...rack,
+        x: newRackX,
+        y: newRackY,
         shelves: newShelves
       }
     })
@@ -447,15 +443,24 @@ export default function PlanogramEditor() {
           const newWidth = item.product.width * newScale
           const newHeight = item.product.height * newScale
           
+          // Масштабируем позицию товара
+          const newX = item.x * scaleRatio
+          const newY = item.y * scaleRatio
+          
           console.log('📦 Масштабируем товар:', {
             id: item.id,
             name: item.product.name,
+            oldPosition: { x: item.x, y: item.y },
+            newPosition: { x: newX, y: newY },
             oldSize: { width: item.width, height: item.height },
-            newSize: { width: newWidth, height: newHeight }
+            newSize: { width: newWidth, height: newHeight },
+            scaleRatio
           })
           
           return {
             ...item,
+            x: newX,
+            y: newY,
             width: newWidth,
             height: newHeight
           }
@@ -465,15 +470,21 @@ export default function PlanogramEditor() {
           // Масштабируем отдельные полки
           const widthMm = item.width / oldScale
           const heightMm = item.height / oldScale
+          const newX = item.x * scaleRatio
+          const newY = item.y * scaleRatio
           
           console.log('📋 Масштабируем отдельную полку:', {
             id: item.id,
+            oldPosition: { x: item.x, y: item.y },
+            newPosition: { x: newX, y: newY },
             oldSize: { width: item.width, height: item.height },
             newSize: { width: widthMm * newScale, height: heightMm * newScale }
           })
           
           return {
             ...item,
+            x: newX,
+            y: newY,
             width: widthMm * newScale,
             height: heightMm * newScale
           }
