@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Request, Response, NextFunction } from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import compression from 'compression'
@@ -126,7 +126,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 // Routes
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'ok',
     message: 'PlanoAPP API is running',
@@ -137,7 +137,7 @@ app.get('/api/health', (req, res) => {
 })
 
 // Products routes
-app.get('/api/products', async (req, res) => {
+app.get('/api/products', async (req: Request, res: Response) => {
   try {
     const products = await db.getProducts()
     res.json(products)
@@ -147,7 +147,7 @@ app.get('/api/products', async (req, res) => {
   }
 })
 
-app.post('/api/products', async (req, res) => {
+app.post('/api/products', async (req: Request, res: Response) => {
   try {
     const { name, width, height, depth, color, category, barcode, imageUrl, spacing } = req.body
     
@@ -174,7 +174,7 @@ app.post('/api/products', async (req, res) => {
   }
 })
 
-app.put('/api/products/:id', async (req, res) => {
+app.put('/api/products/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const { name, width, height, depth, color, category, barcode, imageUrl, spacing } = req.body
@@ -203,7 +203,7 @@ app.put('/api/products/:id', async (req, res) => {
   }
 })
 
-app.delete('/api/products/:id', async (req, res) => {
+app.delete('/api/products/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const deleted = await db.deleteProduct(id)
@@ -220,7 +220,7 @@ app.delete('/api/products/:id', async (req, res) => {
 })
 
 // File upload route
-app.post('/api/upload', upload.single('image'), (req, res) => {
+app.post('/api/upload', upload.single('image'), (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' })
@@ -240,7 +240,7 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
 })
 
 // Planograms routes
-app.get('/api/planograms', async (req, res) => {
+app.get('/api/planograms', async (req: Request, res: Response) => {
   try {
     const planograms = await db.getPlanograms()
     res.json(planograms)
@@ -250,7 +250,7 @@ app.get('/api/planograms', async (req, res) => {
   }
 })
 
-app.get('/api/planograms/:id', async (req, res) => {
+app.get('/api/planograms/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const planogram = await db.getPlanogram(id)
@@ -266,7 +266,7 @@ app.get('/api/planograms/:id', async (req, res) => {
   }
 })
 
-app.post('/api/planograms', async (req, res) => {
+app.post('/api/planograms', async (req: Request, res: Response) => {
   try {
     const { name, data } = req.body
     
@@ -286,7 +286,7 @@ app.post('/api/planograms', async (req, res) => {
   }
 })
 
-app.put('/api/planograms/:id', async (req, res) => {
+app.put('/api/planograms/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const { name, data } = req.body
@@ -308,7 +308,7 @@ app.put('/api/planograms/:id', async (req, res) => {
   }
 })
 
-app.delete('/api/planograms/:id', async (req, res) => {
+app.delete('/api/planograms/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
     const deleted = await db.deletePlanogram(id)
@@ -325,12 +325,12 @@ app.delete('/api/planograms/:id', async (req, res) => {
 })
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use('*', (req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint not found' })
 })
 
 // Error handling middleware
-app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((error: any, req: Request, res: Response, next: NextFunction) => {
   console.error('Unhandled error:', error)
   res.status(500).json({ 
     error: 'Internal server error',
