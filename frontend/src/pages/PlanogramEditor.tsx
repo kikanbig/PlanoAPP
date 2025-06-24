@@ -741,6 +741,15 @@ export default function PlanogramEditor() {
       return
     }
 
+    // Определяем к какому стеллажу принадлежит полка
+    let rackId: string | undefined = undefined
+    for (const rack of racks) {
+      if (rack.shelves.some(s => s.id === shelf.id)) {
+        rackId = rack.id
+        break
+      }
+    }
+
     // Создаем новый товар
     const newProduct: ShelfItem = {
       id: `product-${Date.now()}`,
@@ -750,7 +759,9 @@ export default function PlanogramEditor() {
       height: productHeightPx,
       depth: product.depth,
       product,
-      type: 'product'
+      type: 'product',
+      rackId: rackId,
+      shelfId: shelf.id
     }
 
     console.log(`🎯 Создаем новый товар "${product.name}":`, {
@@ -1365,14 +1376,8 @@ export default function PlanogramEditor() {
                     
                     // Также обновляем позиции товаров на полках стеллажа
                     setItems(prev => prev.map(item => {
-                      // Если товар находится на полке этого стеллажа (проверяем по СТАРЫМ координатам)
-                      if (item.type === 'product' && rack.shelves.some(shelf => {
-                        // Используем СТАРЫЕ координаты полки (до перемещения) для проверки
-                        const oldShelfX = shelf.x
-                        const oldShelfY = shelf.y
-                        return item.x >= oldShelfX && item.x <= oldShelfX + shelf.width &&
-                               item.y >= oldShelfY && item.y <= oldShelfY + shelf.height
-                      })) {
+                      // 🎯 ИСПРАВЛЕНО: проверяем принадлежность товара к стеллажу по rackId
+                      if (item.type === 'product' && item.rackId === rack.id) {
                         return { ...item, x: item.x + deltaX, y: item.y + deltaY }
                       }
                       return item

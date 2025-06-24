@@ -26,10 +26,12 @@ export interface ShelfItem {
   shelfType?: ShelfType // тип полки
   maxLoad?: number // максимальная нагрузка в кг
   // Метаданные для полок стеллажей
-  rackId?: string
+  rackId?: string // ID стеллажа к которому принадлежит элемент
   level?: number
   isTopShelf?: boolean
   isBottomShelf?: boolean
+  // Для товаров: привязка к полке
+  shelfId?: string // ID полки на которой размещен товар
 }
 
 export interface RackSystem {
