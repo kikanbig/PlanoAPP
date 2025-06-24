@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # CACHE BUST - Принудительная пересборка 2025-06-24 12:45
-ENV CACHE_BUST=20250624-1255
+ENV CACHE_BUST=20250624-1307
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
