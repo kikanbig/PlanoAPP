@@ -188,8 +188,14 @@ export default function PlanogramEditor() {
 
   const addRack = useCallback((rackType: 'gondola' | 'wall' | 'endcap' | 'island') => {
     const rackId = `rack-${Date.now()}`
-    const rackX = snapToGrid(100)
-    const rackY = snapToGrid(100)
+    
+    // 🎯 СОЗДАЕМ новые стеллажи в разных позициях чтобы они не накладывались
+    const existingRacksCount = racks.length
+    const offsetX = (existingRacksCount % 3) * 300 // 3 стеллажа в ряд
+    const offsetY = Math.floor(existingRacksCount / 3) * 400 // новый ряд каждые 3 стеллажа
+    
+    const rackX = snapToGrid(100 + offsetX)
+    const rackY = snapToGrid(100 + offsetY)
     
     // Создаем стеллаж
     const newRack: RackSystem = {
@@ -216,7 +222,7 @@ export default function PlanogramEditor() {
     // НЕ добавляем полки стеллажей в items
     
     toast.success(`Стеллаж добавлен с ${newRack.levels} полками`)
-  }, [snapToGrid, createRackShelves])
+  }, [snapToGrid, createRackShelves, racks.length])
 
   // Функция для обновления полок в стеллаже при изменении количества уровней
   const updateRackShelves = useCallback((rackId: string, newLevels: number) => {
@@ -1359,11 +1365,13 @@ export default function PlanogramEditor() {
                     
                     // Также обновляем позиции товаров на полках стеллажа
                     setItems(prev => prev.map(item => {
-                      // Если товар находится на полке этого стеллажа
+                      // Если товар находится на полке этого стеллажа (проверяем по СТАРЫМ координатам)
                       if (item.type === 'product' && rack.shelves.some(shelf => {
-                        // Проверяем если товар находится в области полки
-                        return item.x >= shelf.x && item.x <= shelf.x + shelf.width &&
-                               item.y >= shelf.y && item.y <= shelf.y + shelf.height
+                        // Используем СТАРЫЕ координаты полки (до перемещения) для проверки
+                        const oldShelfX = shelf.x
+                        const oldShelfY = shelf.y
+                        return item.x >= oldShelfX && item.x <= oldShelfX + shelf.width &&
+                               item.y >= oldShelfY && item.y <= oldShelfY + shelf.height
                       })) {
                         return { ...item, x: item.x + deltaX, y: item.y + deltaY }
                       }
