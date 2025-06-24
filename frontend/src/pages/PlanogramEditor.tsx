@@ -62,13 +62,31 @@ export default function PlanogramEditor() {
           hasSettings: !!planogramData.settings
         })
         
+        // 🎯 БЛОКИРУЕМ масштабирование при загрузке планограммы
+        isScalingInProgress.current = true
+        
+        // Загружаем все данные одновременно
         setItems(planogramData.items || [])
         setRacks(planogramData.racks || [])
-        setSettings(prev => ({ ...prev, ...planogramData.settings }))
+        if (planogramData.settings) {
+          setSettings(prev => {
+            const newSettings = { ...prev, ...planogramData.settings }
+            // Обновляем prevPixelsPerMm чтобы избежать пересчета
+            prevPixelsPerMm.current = newSettings.pixelsPerMm
+            return newSettings
+          })
+        }
+        
+        // Разрешаем масштабирование через небольшую задержку
+        setTimeout(() => {
+          isScalingInProgress.current = false
+        }, 100)
+        
         toast.success(`Планограмма "${planogram.name}" загружена`)
       } catch (error) {
         console.error('Ошибка загрузки планограммы:', error)
         toast.error('Не удалось загрузить планограмму')
+        isScalingInProgress.current = false
       }
     }
   }
