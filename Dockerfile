@@ -1,6 +1,7 @@
 # Используем Node.js 18 Alpine для легковесности
 FROM node:18-alpine
 
+# Force rebuild - v1.1.2 fix
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
