@@ -296,7 +296,18 @@ app.get('/api/planograms/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Планограмма не найдена' })
     }
     
-    res.json(planogram)
+    // Парсим JSON данные планограммы
+    try {
+      const parsedData = JSON.parse(planogram.data)
+      res.json({
+        ...planogram,
+        data: parsedData // Отправляем распарсенные данные
+      })
+    } catch (parseError) {
+      // Если не удается распарсить, отправляем как есть
+      console.warn('Unable to parse planogram data:', parseError)
+      res.json(planogram)
+    }
   } catch (error) {
     console.error('Error getting planogram:', error)
     res.status(500).json({ error: 'Internal server error' })
@@ -305,21 +316,39 @@ app.get('/api/planograms/:id', async (req: Request, res: Response) => {
 
 app.post('/api/planograms', async (req: Request, res: Response) => {
   try {
-    const { name, data } = req.body
+    const { name, category, items, racks, settings } = req.body
+    
+    // Создаем объект планограммы совместимый с типами
+    const planogramData = {
+      name,
+      category: category || 'Основная',
+      items: items || [],
+      racks: racks || [],
+      settings: settings || {}
+    }
     
     const newPlanogram: Planogram = {
       id: Date.now().toString(),
       name,
-      data,
+      data: JSON.stringify(planogramData), // Сохраняем как JSON строку
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
+    
+    console.log(`💾 Сохраняем планограмму "${name}" с данными:`, {
+      itemsCount: items?.length || 0,
+      racksCount: racks?.length || 0,
+      hasSettings: !!settings
+    })
     
     const planogram = await db.addPlanogram(newPlanogram)
     res.status(201).json(planogram)
   } catch (error) {
     console.error('Error creating planogram:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 
