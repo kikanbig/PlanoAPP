@@ -1,3 +1,5 @@
+import { Planogram } from '../types'
+
 const API_BASE_URL = '/api'
 
 export interface Product {
@@ -12,18 +14,6 @@ export interface Product {
   imageUrl?: string | null
   createdAt?: string
   updatedAt?: string
-}
-
-export interface Planogram {
-  id: string
-  name: string
-  category?: string
-  items?: any[]
-  racks?: any[]
-  settings?: any
-  data?: any // Поле для хранения данных планограммы как JSON
-  createdAt: string
-  updatedAt: string
 }
 
 class ApiService {

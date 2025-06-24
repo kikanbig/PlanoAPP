@@ -63,9 +63,14 @@ export interface Planogram {
   id: string
   name: string
   category?: string
-  items: ShelfItem[]
-  racks: RackSystem[]
-  settings: PlanogramSettings
+  items?: ShelfItem[]
+  racks?: RackSystem[]
+  settings?: PlanogramSettings
+  data?: {
+    items?: ShelfItem[]
+    racks?: RackSystem[]
+    settings?: PlanogramSettings
+  } // Поле для хранения данных планограммы как JSON
   createdAt: string
   updatedAt: string
 } 
