@@ -1336,19 +1336,35 @@ export default function PlanogramEditor() {
                     const newX = snapToGrid(e.target.x())
                     const newY = snapToGrid(e.target.y())
                     
-                    // Обновляем позицию стеллажа
-                    setRacks(prev => prev.map(r => 
-                      r.id === rack.id 
-                        ? { ...r, x: newX, y: newY }
-                        : r
-                    ))
-                    
-                    // Обновляем позиции полок стеллажа
+                    // Вычисляем смещение
                     const deltaX = newX - rack.x
                     const deltaY = newY - rack.y
                     
+                    // Обновляем позицию стеллажа И позиции его полок
+                    setRacks(prev => prev.map(r => 
+                      r.id === rack.id 
+                        ? { 
+                            ...r, 
+                            x: newX, 
+                            y: newY,
+                            // 🎯 ОБНОВЛЯЕМ позиции полок внутри стеллажа
+                            shelves: r.shelves.map(shelf => ({
+                              ...shelf,
+                              x: shelf.x + deltaX,
+                              y: shelf.y + deltaY
+                            }))
+                          }
+                        : r
+                    ))
+                    
+                    // Также обновляем позиции товаров на полках стеллажа
                     setItems(prev => prev.map(item => {
-                      if (rack.shelves.some(shelf => shelf.id === item.id)) {
+                      // Если товар находится на полке этого стеллажа
+                      if (item.type === 'product' && rack.shelves.some(shelf => {
+                        // Проверяем если товар находится в области полки
+                        return item.x >= shelf.x && item.x <= shelf.x + shelf.width &&
+                               item.y >= shelf.y && item.y <= shelf.y + shelf.height
+                      })) {
                         return { ...item, x: item.x + deltaX, y: item.y + deltaY }
                       }
                       return item
