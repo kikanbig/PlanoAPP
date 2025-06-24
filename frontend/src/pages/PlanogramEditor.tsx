@@ -852,14 +852,85 @@ export default function PlanogramEditor() {
       ))
       
       toast.success(`Стеллаж удален вместе с ${rackToDelete.shelves.length} полками и ${productsToDelete.length} товарами`)
-    } else {
-      // Обычное удаление элемента
-      setItems(prev => prev.filter(item => item.id !== id))
-      toast.success('Элемент удален')
+      setSelectedId(null)
+      return
     }
     
-    setSelectedId(null)
-  }, [racks, items])
+    // Проверяем, удаляется ли полка стеллажа
+    let shelfToDelete = null
+    let parentRack = null
+    
+    for (const rack of racks) {
+      const shelfFound = rack.shelves.find(shelf => shelf.id === id)
+      if (shelfFound) {
+        shelfToDelete = shelfFound
+        parentRack = rack
+        break
+      }
+    }
+    
+    if (shelfToDelete && parentRack) {
+      // Удаляем полку из стеллажа
+      console.log(`🗑️ Удаляем полку стеллажа: ${shelfToDelete.id} из стеллажа ${parentRack.id}`)
+      
+      // Находим товары на этой полке
+      const productsToDelete = items.filter(item => 
+        item.type === 'product' && 
+        item.x >= shelfToDelete.x - 10 && 
+        item.x < shelfToDelete.x + shelfToDelete.width + 10 && 
+        item.y >= shelfToDelete.y && 
+        item.y + item.height <= shelfToDelete.y + shelfToDelete.height + 10
+      )
+      
+      // Обновляем стеллаж - удаляем полку и пересчитываем оставшиеся
+      setRacks(prev => prev.map(rack => {
+        if (rack.id !== parentRack.id) return rack
+        
+        const remainingShelves = rack.shelves.filter(shelf => shelf.id !== id)
+        
+        // Пересчитываем позиции оставшихся полок
+        const updatedShelves = remainingShelves.map((shelf, index) => {
+          const rackHeightPx = mmToPixels(rack.height)
+          const shelfHeightPx = rackHeightPx / rack.levels
+          const shelfY = rack.y + rackHeightPx - (index + 1) * shelfHeightPx
+          
+          return {
+            ...shelf,
+            level: index,
+            y: shelfY,
+            isTopShelf: index === rack.levels - 1,
+            isBottomShelf: index === 0
+          }
+        })
+        
+        return {
+          ...rack,
+          levels: Math.max(1, rack.levels - 1), // уменьшаем количество уровней
+          shelves: updatedShelves
+        }
+      }))
+      
+      // Удаляем товары с этой полки
+      setItems(prev => prev.filter(item => 
+        !productsToDelete.some(product => product.id === item.id)
+      ))
+      
+      toast.success(`Полка удалена вместе с ${productsToDelete.length} товарами`)
+      setSelectedId(null)
+      return
+    }
+    
+    // Обычное удаление элемента (отдельные полки, товары)
+    const itemToDelete = items.find(item => item.id === id)
+    if (itemToDelete) {
+      setItems(prev => prev.filter(item => item.id !== id))
+      toast.success('Элемент удален')
+      setSelectedId(null)
+    } else {
+      console.warn('Элемент для удаления не найден:', id)
+      toast.error('Элемент не найден')
+    }
+  }, [racks, items, mmToPixels])
 
   const exportToPNG = useCallback(() => {
     if (stageRef.current) {
