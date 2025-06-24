@@ -365,8 +365,6 @@ export default function PlanogramEditor() {
     
     // Обновляем стеллажи и их полки
     const newRacks = currentRacks.map(rack => {
-      const newShelves: ShelfItem[] = []
-      
       // Масштабируем позицию стеллажа
       const newRackX = rack.x * scaleRatio
       const newRackY = rack.y * scaleRatio
@@ -375,49 +373,41 @@ export default function PlanogramEditor() {
       const rackWidthPx = rack.width * newScale
       const rackHeightPx = rack.height * newScale
       
-      // НОВАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
-      // Каждая полка занимает 1/levels часть от общей высоты стеллажа
+      // ОБНОВЛЯЕМ СУЩЕСТВУЮЩИЕ полки вместо создания новых
       const shelfHeightPx = rackHeightPx / rack.levels
       
-      for (let i = 0; i < rack.levels; i++) {
-        // Полки располагаются снизу вверх
-        // Нижняя полка (i=0) начинается от нижнего края стеллажа
-        // Каждая следующая полка выше на shelfHeightPx
-        const shelfY = newRackY + rackHeightPx - (i + 1) * shelfHeightPx
+      const updatedShelves = rack.shelves.map((existingShelf) => {
+        const shelfLevel = existingShelf.level ?? 0
+        const shelfY = newRackY + rackHeightPx - (shelfLevel + 1) * shelfHeightPx
         
-        const shelf: ShelfItem = {
-          id: `shelf-${rack.id}-${i}`,
-          type: 'shelf' as const,
+        // 🎯 СОХРАНЯЕМ shelfType и другие свойства при масштабировании
+        return {
+          ...existingShelf, // ✅ Сохраняем все существующие свойства включая shelfType
           x: newRackX,
           y: shelfY,
           width: rackWidthPx,
           height: shelfHeightPx,
-          depth: rack.depth,
-          level: i,
-          rackId: rack.id
+          depth: rack.depth
         }
-        
-        newShelves.push(shelf)
-      }
+      })
       
-      console.log(`✅ Пересчитали полки для стеллажа ${rack.id}: ${newShelves.length} полок`, newShelves.map(s => ({
-        id: s.id,
-        level: s.level,
-        x: s.x,
-        y: s.y,
-        width: s.width,
-        height: s.height,
-        heightMm: Math.round(s.height / newScale),
-        rackY: newRackY,
-        rackHeight: rackHeightPx,
-        rackBottom: newRackY + rackHeightPx
-      })))
+      console.log(`✅ Обновили полки для стеллажа ${rack.id}: ${updatedShelves.length} полок с сохранением типов`, 
+        updatedShelves.map(s => ({
+          id: s.id,
+          level: s.level,
+          shelfType: s.shelfType, // Проверяем что типы сохранились
+          x: s.x,
+          y: s.y,
+          width: s.width,
+          height: s.height
+        }))
+      )
       
       return {
         ...rack,
         x: newRackX,
         y: newRackY,
-        shelves: newShelves
+        shelves: updatedShelves
       }
     })
     
