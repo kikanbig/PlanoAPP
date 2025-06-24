@@ -1,6 +1,6 @@
 {
   "name": "planogram-backend",
-  "version": "1.1.7",
+  "version": "1.2.0",
   "description": "Backend API для PlanoAPP - системы создания планограмм",
   "main": "dist/index.js",
   "scripts": {
@@ -28,13 +28,13 @@
     "pg": "^8.16.2",
     "prisma": "^5.6.0",
     "sqlite3": "^5.1.7",
+    "tsx": "^4.6.2",
     "typescript": "^5.3.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
-    "eslint": "^8.53.0",
-    "tsx": "^4.6.2"
+    "eslint": "^8.53.0"
   }
 }

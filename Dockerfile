@@ -1,8 +1,8 @@
 # Используем Node.js 18 Alpine для легковесности
 FROM node:18-alpine
 
-# CACHE BUST - Принудительная пересборка 2025-06-24 12:45
-ENV CACHE_BUST=20250624-1307
+# CACHE BUST - Принудительная пересборка 2025-06-24 15:30
+ENV CACHE_BUST=20250624-1530
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -18,8 +18,11 @@ COPY frontend/package*.json ./frontend/
 # Устанавливаем зависимости для корневого уровня
 RUN npm ci
 
-# Устанавливаем ВСЕ зависимости для backend 
+# Устанавливаем ВСЕ зависимости для backend включая типы
 RUN cd backend && npm ci
+
+# Принудительно переустанавливаем типы для backend
+RUN cd backend && npm install --save @types/express @types/cors @types/helmet @types/compression @types/multer @types/node
 
 # Устанавливаем зависимости для frontend  
 RUN cd frontend && npm ci
@@ -33,14 +36,11 @@ RUN cd backend && npm run build
 # Компилируем frontend
 RUN cd frontend && npm run build
 
-# Копируем статические файлы frontend в backend/dist
-RUN cp -r frontend/dist/* backend/dist/
+# Копируем статические файлы frontend в backend
+RUN cp -r frontend/dist/* backend/
 
-# Экспонируем порт
+# Открываем порт
 EXPOSE 4000
 
-# Устанавливаем переменную окружения
-ENV NODE_ENV=production
-
 # Запускаем приложение
-CMD ["node", "backend/dist/index.js"] 
+CMD ["npm", "run", "start"] 

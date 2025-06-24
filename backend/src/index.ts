@@ -6,31 +6,17 @@ import dotenv from 'dotenv'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import { createDatabaseAdapter } from './database.js'
+import { createDatabaseAdapter } from './database'
 
-// Типы данных
-interface Product {
-  id: string
-  name: string
-  width: number
-  height: number
-  depth: number
-  color: string
-  category?: string
-  barcode?: string
-  imageUrl?: string | null
-  spacing?: number
-  createdAt: string
-  updatedAt: string
-}
-
-interface Planogram {
-  id: string
-  name: string
-  data: any
-  createdAt: string
-  updatedAt: string
-}
+// Import custom types
+import { 
+  MulterFile, 
+  FileFilterCallback, 
+  DestinationCallback, 
+  FilenameCallback,
+  Product,
+  Planogram 
+} from './types'
 
 // Load environment variables
 dotenv.config()
@@ -49,10 +35,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+  destination: (req: Request, file: MulterFile, cb: DestinationCallback) => {
     cb(null, uploadsDir)
   },
-  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+  filename: (req: Request, file: MulterFile, cb: FilenameCallback) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
   }
@@ -63,7 +49,7 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
-  fileFilter: (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  fileFilter: (req: Request, file: MulterFile, cb: FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true)
     } else {
