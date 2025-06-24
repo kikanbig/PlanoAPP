@@ -870,7 +870,7 @@ export default function PlanogramEditor() {
     }
     
     if (shelfToDelete && parentRack) {
-      // Удаляем полку из стеллажа
+      // Удаляем полку из стеллажа БЕЗ перестройки других полок
       console.log(`🗑️ Удаляем полку стеллажа: ${shelfToDelete.id} из стеллажа ${parentRack.id}`)
       
       // Находим товары на этой полке
@@ -882,31 +882,15 @@ export default function PlanogramEditor() {
         item.y + item.height <= shelfToDelete.y + shelfToDelete.height + 10
       )
       
-      // Обновляем стеллаж - удаляем полку и пересчитываем оставшиеся
+      // Просто удаляем полку из стеллажа, не трогая остальные
       setRacks(prev => prev.map(rack => {
         if (rack.id !== parentRack.id) return rack
         
         const remainingShelves = rack.shelves.filter(shelf => shelf.id !== id)
         
-        // Пересчитываем позиции оставшихся полок
-        const updatedShelves = remainingShelves.map((shelf, index) => {
-          const rackHeightPx = mmToPixels(rack.height)
-          const shelfHeightPx = rackHeightPx / rack.levels
-          const shelfY = rack.y + rackHeightPx - (index + 1) * shelfHeightPx
-          
-          return {
-            ...shelf,
-            level: index,
-            y: shelfY,
-            isTopShelf: index === rack.levels - 1,
-            isBottomShelf: index === 0
-          }
-        })
-        
         return {
           ...rack,
-          levels: Math.max(1, rack.levels - 1), // уменьшаем количество уровней
-          shelves: updatedShelves
+          shelves: remainingShelves
         }
       }))
       
@@ -1070,6 +1054,87 @@ export default function PlanogramEditor() {
             <Cog6ToothIcon className="w-4 h-4 mr-2" />
             Настройки
           </h3>
+          
+          {/* Смена типа полки */}
+          {isShelf && selectedItem && (
+            <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+              <label className="block text-xs font-medium text-blue-800 mb-1">
+                Тип полки:
+              </label>
+              <select
+                value={selectedItem.shelfType || 'standard'}
+                onChange={(e) => {
+                  const newShelfType = e.target.value as any
+                  // Обновляем полку в items или в racks
+                  const itemInItems = items.find(item => item.id === selectedId)
+                  if (itemInItems) {
+                    setItems(prev => prev.map(item => 
+                      item.id === selectedId 
+                        ? { ...item, shelfType: newShelfType }
+                        : item
+                    ))
+                  } else {
+                    // Ищем в полках стеллажей
+                    setRacks(prev => prev.map(rack => ({
+                      ...rack,
+                      shelves: rack.shelves.map(shelf => 
+                        shelf.id === selectedId 
+                          ? { ...shelf, shelfType: newShelfType }
+                          : shelf
+                      )
+                    })))
+                  }
+                }}
+                className="w-full text-xs p-1 border border-blue-300 rounded bg-white"
+              >
+                <option value="standard">📋 Стандартная</option>
+                <option value="hook">👔 Крючки</option>
+                <option value="basket">🧺 Корзина</option>
+                <option value="divider">📐 С разделителями</option>
+                <option value="slanted">📐 Наклонная</option>
+                <option value="wire">🔗 Проволочная</option>
+                <option value="bottle">🍾 Для бутылок</option>
+                <option value="pegboard">🔩 Перфорированная</option>
+              </select>
+            </div>
+          )}
+          
+          {/* Быстрое добавление разных типов полок */}
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Добавить полку:
+            </label>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => addShelf('standard')}
+                className="text-xs p-1 bg-gray-100 hover:bg-gray-200 rounded border text-left"
+                title="Стандартная полка"
+              >
+                📋 Стандарт
+              </button>
+              <button
+                onClick={() => addShelf('hook')}
+                className="text-xs p-1 bg-yellow-100 hover:bg-yellow-200 rounded border text-left"
+                title="Полка с крючками"
+              >
+                👔 Крючки
+              </button>
+              <button
+                onClick={() => addShelf('basket')}
+                className="text-xs p-1 bg-blue-100 hover:bg-blue-200 rounded border text-left"
+                title="Корзина"
+              >
+                🧺 Корзина
+              </button>
+              <button
+                onClick={() => addShelf('wire')}
+                className="text-xs p-1 bg-gray-100 hover:bg-gray-200 rounded border text-left"
+                title="Проволочная полка"
+              >
+                🔗 Проволочная
+              </button>
+            </div>
+          </div>
           
           <div className="grid grid-cols-2 gap-2 mb-3">
             <label className="flex items-center text-xs text-gray-700">

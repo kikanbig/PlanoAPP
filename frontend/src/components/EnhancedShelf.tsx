@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Group, Rect, Text, Transformer, Line } from 'react-konva'
+import { Group, Rect, Text, Transformer, Line, Circle, Arc } from 'react-konva'
 import { ShelfItem, PlanogramSettings } from '../types'
 
 interface EnhancedShelfProps {
@@ -28,17 +28,52 @@ export default function EnhancedShelf({
   const shelfDepth = shelf.depth || settings.defaultShelfDepth || 400
   const depthOffset = settings.show3D ? Math.min(mmToPixels(shelfDepth) * 0.15, 20) : 0
   
-  // Цвета для разных типов полок
-  const shelfColors = {
-    standard: '#F3F4F6',
-    hook: '#FEF3C7',
-    basket: '#E0F2FE',
-    divider: '#F0FDF4'
+  // Цвета и стили для разных типов полок
+  const shelfStyles = {
+    standard: { 
+      fill: '#F8FAFC', 
+      stroke: '#E2E8F0', 
+      accent: '#64748B' 
+    },
+    hook: { 
+      fill: '#FEF9C3', 
+      stroke: '#F59E0B', 
+      accent: '#D97706' 
+    },
+    basket: { 
+      fill: '#E0F7FA', 
+      stroke: '#0891B2', 
+      accent: '#0369A1' 
+    },
+    divider: { 
+      fill: '#F0FDF4', 
+      stroke: '#16A34A', 
+      accent: '#15803D' 
+    },
+    slanted: { 
+      fill: '#FDF4FF', 
+      stroke: '#A855F7', 
+      accent: '#7C3AED' 
+    },
+    wire: { 
+      fill: '#F1F5F9', 
+      stroke: '#475569', 
+      accent: '#334155' 
+    },
+    bottle: { 
+      fill: '#FEF2F2', 
+      stroke: '#EF4444', 
+      accent: '#DC2626' 
+    },
+    pegboard: { 
+      fill: '#FFFBEB', 
+      stroke: '#F59E0B', 
+      accent: '#D97706' 
+    }
   }
   
-  const baseColor = shelfColors[shelf.shelfType || 'standard'] || '#F3F4F6'
+  const style = shelfStyles[shelf.shelfType || 'standard']
 
-  
   useEffect(() => {
     if (isSelected && transformerRef.current && shelfRef.current) {
       transformerRef.current.nodes([shelfRef.current])
@@ -53,7 +88,6 @@ export default function EnhancedShelf({
     const scaleX = node.scaleX()
     const scaleY = node.scaleY()
     
-    // Сбрасываем масштаб и применяем новые размеры
     node.scaleX(1)
     node.scaleY(1)
     
@@ -69,6 +103,235 @@ export default function EnhancedShelf({
         width: newWidth,
         height: newHeight
       })
+    }
+  }
+
+  // Рендер разных типов полок
+  const renderShelfPattern = () => {
+    const type = shelf.shelfType || 'standard'
+    
+    switch (type) {
+      case 'hook':
+        // Крючки для одежды
+        return (
+          <Group>
+            {Array.from({ length: Math.floor(shelf.width / 60) }, (_, i) => (
+              <Group key={i}>
+                <Circle
+                  x={30 + i * 60}
+                  y={shelf.height - 8}
+                  radius={3}
+                  fill={style.accent}
+                />
+                <Arc
+                  x={30 + i * 60}
+                  y={shelf.height - 8}
+                  innerRadius={3}
+                  outerRadius={8}
+                  angle={180}
+                  rotation={180}
+                  stroke={style.accent}
+                  strokeWidth={2}
+                />
+              </Group>
+            ))}
+            <Text
+              x={5}
+              y={5}
+              text="👔"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'basket':
+        // Сетчатая корзина
+        return (
+          <Group>
+            {/* Сетка */}
+            {Array.from({ length: Math.floor(shelf.width / 15) }, (_, i) => (
+              <Line
+                key={`v-${i}`}
+                points={[i * 15, 5, i * 15, shelf.height - 5]}
+                stroke={style.accent}
+                strokeWidth={0.5}
+                opacity={0.7}
+              />
+            ))}
+            {Array.from({ length: Math.floor(shelf.height / 15) }, (_, i) => (
+              <Line
+                key={`h-${i}`}
+                points={[5, i * 15, shelf.width - 5, i * 15]}
+                stroke={style.accent}
+                strokeWidth={0.5}
+                opacity={0.7}
+              />
+            ))}
+            <Text
+              x={5}
+              y={5}
+              text="🧺"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'divider':
+        // Полка с разделителями
+        return (
+          <Group>
+            {Array.from({ length: Math.floor(shelf.width / 80) }, (_, i) => (
+              <Rect
+                key={i}
+                x={40 + i * 80}
+                y={0}
+                width={2}
+                height={shelf.height}
+                fill={style.accent}
+                opacity={0.8}
+              />
+            ))}
+            <Text
+              x={5}
+              y={5}
+              text="📋"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'slanted':
+        // Наклонная полка
+        return (
+          <Group>
+            <Line
+              points={[10, shelf.height, shelf.width - 10, shelf.height - 10]}
+              stroke={style.accent}
+              strokeWidth={2}
+              lineCap='round'
+            />
+            {/* Поддерживающие элементы */}
+            {Array.from({ length: 3 }, (_, i) => (
+              <Line
+                key={i}
+                points={[
+                  20 + i * (shelf.width - 40) / 2, 
+                  shelf.height, 
+                  20 + i * (shelf.width - 40) / 2, 
+                  shelf.height - 15
+                ]}
+                stroke={style.accent}
+                strokeWidth={1}
+                opacity={0.7}
+              />
+            ))}
+            <Text
+              x={5}
+              y={5}
+              text="📐"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'wire':
+        // Проволочная полка
+        return (
+          <Group>
+            {/* Проволочные прутья */}
+            {Array.from({ length: Math.floor(shelf.width / 20) }, (_, i) => (
+              <Circle
+                key={i}
+                x={10 + i * 20}
+                y={shelf.height / 2}
+                radius={1}
+                fill={style.accent}
+              />
+            ))}
+            {/* Соединяющие линии */}
+            <Line
+              points={[5, shelf.height / 2, shelf.width - 5, shelf.height / 2]}
+              stroke={style.accent}
+              strokeWidth={2}
+            />
+            <Line
+              points={[5, shelf.height - 5, shelf.width - 5, shelf.height - 5]}
+              stroke={style.accent}
+              strokeWidth={2}
+            />
+            <Text
+              x={5}
+              y={5}
+              text="🔗"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'bottle':
+        // Полка для бутылок с выемками
+        return (
+          <Group>
+            {Array.from({ length: Math.floor(shelf.width / 50) }, (_, i) => (
+              <Arc
+                key={i}
+                x={25 + i * 50}
+                y={shelf.height - 5}
+                innerRadius={8}
+                outerRadius={12}
+                angle={180}
+                rotation={0}
+                stroke={style.accent}
+                strokeWidth={2}
+                fill={style.fill}
+              />
+            ))}
+            <Text
+              x={5}
+              y={5}
+              text="🍾"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      case 'pegboard':
+        // Перфорированная доска
+        return (
+          <Group>
+            {Array.from({ length: Math.floor(shelf.width / 25) }, (_, i) => 
+              Array.from({ length: Math.floor(shelf.height / 25) }, (_, j) => (
+                <Circle
+                  key={`${i}-${j}`}
+                  x={12.5 + i * 25}
+                  y={12.5 + j * 25}
+                  radius={2}
+                  fill={style.accent}
+                  opacity={0.6}
+                />
+              ))
+            ).flat()}
+            <Text
+              x={5}
+              y={5}
+              text="🔩"
+              fontSize={14}
+            />
+          </Group>
+        )
+      
+      default:
+        // Стандартная полка
+        return (
+          <Group>
+            <Text
+              x={5}
+              y={5}
+              text="📋"
+              fontSize={14}
+            />
+          </Group>
+        )
     }
   }
   
@@ -89,13 +352,13 @@ export default function EnhancedShelf({
         {settings.show3D && depthOffset > 0 && (
           <>
             <Rect
-              x={3}
-              y={3}
+              x={4}
+              y={4}
               width={shelf.width}
               height={shelf.height}
               fill='#000000'
-              opacity={0.1}
-              cornerRadius={2}
+              opacity={0.15}
+              cornerRadius={3}
             />
             <Rect
               x={2}
@@ -103,8 +366,8 @@ export default function EnhancedShelf({
               width={shelf.width}
               height={shelf.height}
               fill='#000000'
-              opacity={0.05}
-              cornerRadius={2}
+              opacity={0.08}
+              cornerRadius={3}
             />
           </>
         )}
@@ -115,53 +378,27 @@ export default function EnhancedShelf({
           y={0}
           width={shelf.width}
           height={shelf.height}
-          fill={baseColor}
-          stroke={isSelected ? '#3B82F6' : '#9CA3AF'}
-          strokeWidth={isSelected ? 2 : 1}
-          cornerRadius={2}
+          fill={style.fill}
+          stroke={isSelected ? '#3B82F6' : style.stroke}
+          strokeWidth={isSelected ? 3 : 1.5}
+          cornerRadius={3}
         />
         
         {/* Индикатор глубины */}
         {settings.show3D && shelfDepth > 200 && (
           <Rect
-            x={shelf.width - 30}
-            y={shelf.height - 8}
-            width={25}
-            height={6}
-            fill='#6B7280'
-            opacity={0.3}
-            cornerRadius={3}
+            x={shelf.width - 35}
+            y={shelf.height - 10}
+            width={30}
+            height={8}
+            fill={style.accent}
+            opacity={0.4}
+            cornerRadius={4}
           />
         )}
         
-        {/* Паттерн для разных типов полок */}
-        {shelf.shelfType === 'hook' && (
-          <Group>
-            {Array.from({ length: Math.floor(shelf.width / 40) }, (_, i) => (
-              <Line
-                key={i}
-                points={[20 + i * 40, shelf.height - 5, 25 + i * 40, shelf.height - 15, 30 + i * 40, shelf.height - 5]}
-                stroke='#92400E'
-                strokeWidth={2}
-                lineCap='round'
-              />
-            ))}
-          </Group>
-        )}
-        
-        {shelf.shelfType === 'divider' && (
-          <Group>
-            {Array.from({ length: Math.floor(shelf.width / 100) }, (_, i) => (
-              <Line
-                key={i}
-                points={[50 + i * 100, 0, 50 + i * 100, shelf.height]}
-                stroke='#16A34A'
-                strokeWidth={1}
-                dash={[3, 3]}
-              />
-            ))}
-          </Group>
-        )}
+        {/* Паттерн для типа полки */}
+        {renderShelfPattern()}
         
         {/* Размеры полки */}
         {settings.showDimensions && (
@@ -169,79 +406,63 @@ export default function EnhancedShelf({
             {/* Ширина */}
             <Text
               x={shelf.width / 2}
-              y={shelf.height + 5}
+              y={shelf.height + 8}
               text={`${pixelsToMm(shelf.width)}мм`}
               fontSize={10}
               fill='#374151'
               align='center'
               width={shelf.width}
+              fontStyle='bold'
             />
             
             {/* Высота */}
             <Text
-              x={-25}
+              x={-30}
               y={shelf.height / 2}
               text={`${pixelsToMm(shelf.height)}мм`}
               fontSize={10}
               fill='#374151'
               rotation={-90}
+              fontStyle='bold'
             />
             
             {/* Глубина */}
             <Text
-              x={shelf.width + 10}
-              y={shelf.height / 2 - 10}
+              x={shelf.width + 12}
+              y={shelf.height / 2 - 5}
               text={`↕${shelfDepth}мм`}
               fontSize={10}
-              fill='#DC2626'
+              fill={style.accent}
               fontStyle='bold'
             />
           </Group>
         )}
         
-        {/* Тип полки */}
+        {/* Название типа полки */}
         <Text
-          x={5}
+          x={shelf.width - 5}
           y={5}
-          text={shelf.shelfType === 'hook' ? '🪝' : shelf.shelfType === 'basket' ? '🧺' : shelf.shelfType === 'divider' ? '📏' : '📋'}
-          fontSize={16}
-          fill='#6B7280'
+          text={shelf.shelfType || 'standard'}
+          fontSize={8}
+          fill={style.accent}
+          align='right'
+          width={80}
+          fontStyle='bold'
+          opacity={0.8}
         />
-        
-        {/* Максимальная нагрузка */}
-        {shelf.maxLoad && (
-          <Text
-            x={shelf.width - 40}
-            y={5}
-            text={`${shelf.maxLoad}кг`}
-            fontSize={9}
-            fill='#DC2626'
-          />
-        )}
       </Group>
       
-      {/* Transformer для изменения размеров */}
+      {/* Transformer для изменения размера */}
       {isSelected && shelf.resizable && (
         <Transformer
           ref={transformerRef}
-          boundBoxFunc={(oldBox, newBox) => {
-            // Ограничиваем минимальные размеры
-            if (newBox.width < 50 || newBox.height < 20) {
-              return oldBox
-            }
-            return newBox
-          }}
-          keepRatio={false}
-          enabledAnchors={[
-            'top-left', 'top-right', 'bottom-left', 'bottom-right',
-            'top-center', 'bottom-center', 'middle-left', 'middle-right'
-          ]}
           rotateEnabled={false}
           borderStroke='#3B82F6'
           borderStrokeWidth={2}
           anchorStroke='#3B82F6'
-          anchorFill='white'
+          anchorStrokeWidth={2}
           anchorSize={8}
+          anchorCornerRadius={2}
         />
       )}
     </Group>

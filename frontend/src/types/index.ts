@@ -21,7 +21,7 @@ export interface ShelfItem {
   product?: Product
   type: 'shelf' | 'product' | 'hook' | 'divider' | 'rack'
   resizable?: boolean
-  shelfType?: 'standard' | 'hook' | 'basket' | 'divider' // тип полки
+  shelfType?: 'standard' | 'hook' | 'basket' | 'divider' | 'slanted' | 'wire' | 'bottle' | 'pegboard' // тип полки
   maxLoad?: number // максимальная нагрузка в кг
   // Метаданные для полок стеллажей
   rackId?: string
