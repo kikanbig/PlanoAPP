@@ -1,3 +1,5 @@
+export type ShelfType = 'standard' | 'hook' | 'basket' | 'divider' | 'slanted' | 'wire' | 'bottle' | 'pegboard'
+
 export interface Product {
   id: string
   name: string
@@ -21,7 +23,7 @@ export interface ShelfItem {
   product?: Product
   type: 'shelf' | 'product' | 'hook' | 'divider' | 'rack'
   resizable?: boolean
-  shelfType?: 'standard' | 'hook' | 'basket' | 'divider' | 'slanted' | 'wire' | 'bottle' | 'pegboard' // тип полки
+  shelfType?: ShelfType // тип полки
   maxLoad?: number // максимальная нагрузка в кг
   // Метаданные для полок стеллажей
   rackId?: string

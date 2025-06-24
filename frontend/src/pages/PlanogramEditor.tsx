@@ -10,7 +10,7 @@ import {
   CloudArrowUpIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
-import { Product, ShelfItem, PlanogramSettings, RackSystem } from '../types'
+import { Product, ShelfItem, PlanogramSettings, RackSystem, ShelfType } from '../types'
 import PlanogramItem from '../components/PlanogramItem'
 import EnhancedShelf from '../components/EnhancedShelf'
 import RackSystem3D from '../components/RackSystem3D'
@@ -113,7 +113,7 @@ export default function PlanogramEditor() {
     return Math.round(value / gridSizePixels) * gridSizePixels
   }, [settings.gridSizeMm, settings.snapToGrid, mmToPixels])
 
-  const addShelf = useCallback((shelfType: 'standard' | 'hook' | 'basket' | 'divider' = 'standard') => {
+  const addShelf = useCallback((shelfType: ShelfType = 'standard') => {
     const newShelf: ShelfItem = {
       id: `shelf-${Date.now()}`,
       x: snapToGrid(50),
