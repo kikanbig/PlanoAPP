@@ -1,6 +1,6 @@
 {
   "name": "planogram-backend",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Backend API для PlanoAPP - системы создания планограмм",
   "main": "dist/index.js",
   "scripts": {
