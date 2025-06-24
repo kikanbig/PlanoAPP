@@ -289,42 +289,36 @@ export default function PlanogramEditor() {
       
       const updatedRack = { ...rack, ...newDimensions }
       
-      // Если изменились размеры, пересчитываем полки
+      // Если изменились размеры, пересчитываем только СУЩЕСТВУЮЩИЕ полки
       if (newDimensions.width || newDimensions.height) {
-        // Создаем новые полки встроенной функцией
-        const newShelves: ShelfItem[] = []
-        
-        // Размеры стеллажа в пикселях
-        const rackWidthPx = updatedRack.width * settings.pixelsPerMm
-        const rackHeightPx = updatedRack.height * settings.pixelsPerMm
-        
-        // НОВАЯ ЛОГИКА: равномерно делим стеллаж на количество полок
-        // Каждая полка занимает 1/levels часть от общей высоты стеллажа
-        const shelfHeightPx = rackHeightPx / updatedRack.levels
-        
-        for (let i = 0; i < updatedRack.levels; i++) {
-          // Полки располагаются снизу вверх
-          // Нижняя полка (i=0) начинается от нижнего края стеллажа
-          // Каждая следующая полка выше на shelfHeightPx
-          const shelfY = updatedRack.y + rackHeightPx - (i + 1) * shelfHeightPx
+        // СОХРАНЯЕМ существующие полки и только обновляем их размеры
+        const updatedShelves = rack.shelves.map(existingShelf => {
+          // Размеры стеллажа в пикселях
+          const rackWidthPx = updatedRack.width * settings.pixelsPerMm
+          const rackHeightPx = updatedRack.height * settings.pixelsPerMm
           
-          const shelf: ShelfItem = {
-            id: `shelf-${updatedRack.id}-${i}`,
-            type: 'shelf' as const,
-            x: updatedRack.x,
-            y: shelfY,
-            width: rackWidthPx,
-            height: shelfHeightPx,
-            depth: updatedRack.depth,
-            level: i,
-            rackId: updatedRack.id
+          // Высота одной полки
+          const shelfHeightPx = rackHeightPx / rack.levels
+          
+          // Пересчитываем позицию полки на основе её уровня
+          const shelfY = updatedRack.y + rackHeightPx - (existingShelf.level! + 1) * shelfHeightPx
+          
+          return {
+            ...existingShelf,
+            x: updatedRack.x, // обновляем позицию X стеллажа
+            y: shelfY, // пересчитываем Y на основе уровня
+            width: rackWidthPx, // обновляем ширину
+            height: shelfHeightPx, // обновляем высоту
+            depth: updatedRack.depth
           }
-          
-          newShelves.push(shelf)
-        }
+        })
         
-        // Обновляем состояние
-        updatedRack.shelves = newShelves
+        console.log(`📐 Обновлены размеры для ${updatedShelves.length} существующих полок стеллажа ${rack.id}`)
+        
+        return {
+          ...updatedRack,
+          shelves: updatedShelves
+        }
       }
       
       return updatedRack

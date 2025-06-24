@@ -201,30 +201,66 @@ export default function EnhancedShelf({
         )
       
       case 'slanted':
-        // Наклонная полка
+        // Улучшенная наклонная полка
         return (
           <Group>
+            {/* Основная наклонная поверхность с градиентом */}
             <Line
-              points={[10, shelf.height, shelf.width - 10, shelf.height - 10]}
+              points={[0, shelf.height, shelf.width, shelf.height * 0.7]}
+              stroke={style.accent}
+              strokeWidth={3}
+              lineCap='round'
+            />
+            
+            {/* Толщина полки для 3D эффекта */}
+            <Line
+              points={[0, shelf.height - 2, shelf.width, shelf.height * 0.7 - 2]}
+              stroke={style.fill}
+              strokeWidth={2}
+              lineCap='round'
+              opacity={0.8}
+            />
+            
+            {/* Задняя подпорка */}
+            <Line
+              points={[shelf.width, shelf.height * 0.7, shelf.width, 0]}
+              stroke={style.accent}
+              strokeWidth={2}
+              opacity={0.6}
+            />
+            
+            {/* Поддерживающие кронштейны */}
+            {Array.from({ length: Math.max(2, Math.floor(shelf.width / 150)) }, (_, i) => {
+              const x = (shelf.width * (i + 1)) / (Math.max(2, Math.floor(shelf.width / 150)) + 1)
+              const topY = shelf.height * 0.7 + (x / shelf.width) * (shelf.height - shelf.height * 0.7)
+              return (
+                <Group key={i}>
+                  {/* Вертикальная опора */}
+                  <Line
+                    points={[x, topY, x, 0]}
+                    stroke={style.accent}
+                    strokeWidth={1.5}
+                    opacity={0.7}
+                  />
+                  {/* Угловая поддержка */}
+                  <Line
+                    points={[x - 15, topY + 10, x, topY, x + 15, topY + 10]}
+                    stroke={style.accent}
+                    strokeWidth={1}
+                    opacity={0.5}
+                  />
+                </Group>
+              )
+            })}
+            
+            {/* Передний бортик */}
+            <Line
+              points={[0, shelf.height, 0, shelf.height - 8]}
               stroke={style.accent}
               strokeWidth={2}
               lineCap='round'
             />
-            {/* Поддерживающие элементы */}
-            {Array.from({ length: 3 }, (_, i) => (
-              <Line
-                key={i}
-                points={[
-                  20 + i * (shelf.width - 40) / 2, 
-                  shelf.height, 
-                  20 + i * (shelf.width - 40) / 2, 
-                  shelf.height - 15
-                ]}
-                stroke={style.accent}
-                strokeWidth={1}
-                opacity={0.7}
-              />
-            ))}
+            
             <Text
               x={5}
               y={5}
