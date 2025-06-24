@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "cd backend && npm start"
+startCommand = "npm run start:backend"
 
 [[volumes]]
 name = "uploads"
