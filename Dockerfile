@@ -1,8 +1,8 @@
 # Используем Node.js 18 на более легком образе для быстрой сборки
 FROM node:18-alpine
 
-# CACHE BUST - Принудительная пересборка 2025-06-24 18:00 TypeScript dependencies fix
-ENV CACHE_BUST=20250624-1800
+# CACHE BUST - Принудительная пересборка 2025-06-24 18:20 Fixed @types/helmet removal
+ENV CACHE_BUST=20250624-1820
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
@@ -16,10 +16,10 @@ COPY backend/package*.json ./backend/
 COPY frontend/package*.json ./frontend/
 
 # Устанавливаем зависимости для корневого уровня с ограничением времени
-RUN npm ci --no-optional --timeout=60000
+RUN npm ci --timeout=60000
 
 # Устанавливаем зависимости backend включая devDependencies для TypeScript сборки
-RUN cd backend && npm ci --no-optional --timeout=60000
+RUN cd backend && npm ci --timeout=60000
 
 # Устанавливаем зависимости frontend включая devDependencies для сборки
 RUN cd frontend && npm ci --timeout=60000
