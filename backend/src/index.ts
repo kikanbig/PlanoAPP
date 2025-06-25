@@ -181,13 +181,49 @@ if (process.env.NODE_ENV === 'production') {
 
 // Routes
 app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ 
+  res.json({
     status: 'ok',
     message: 'PlanoAPP API is running',
     version: '1.1.0',
     database: process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uploadsDir: uploadsDir,
+    uploadsExists: fs.existsSync(uploadsDir)
   })
+})
+
+// Debug endpoint for checking uploads directory
+app.get('/api/debug/uploads', (req: Request, res: Response) => {
+  try {
+    const files = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : []
+    const fileDetails = files.slice(0, 20).map(file => {
+      try {
+        const filePath = path.join(uploadsDir, file)
+        const stats = fs.statSync(filePath)
+        return {
+          name: file,
+          size: stats.size,
+          created: stats.birthtime,
+          isFile: stats.isFile()
+        }
+      } catch (err) {
+        return { name: file, error: 'Cannot read stats' }
+      }
+    })
+
+    res.json({
+      uploadsDir,
+      exists: fs.existsSync(uploadsDir),
+      totalFiles: files.length,
+      files: fileDetails,
+      diskUsage: process.env.NODE_ENV === 'production' ? 'Volume mounted' : 'Local storage'
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: 'Cannot read uploads directory',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
+  }
 })
 
 // Products routes
