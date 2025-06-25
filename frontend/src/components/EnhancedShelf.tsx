@@ -439,7 +439,7 @@ export default function EnhancedShelf({
             {/* Фон кнопки */}
             <Rect
               x={shelf.width - 28}
-              y={2}
+              y={25}
               width={26}
               height={20}
               fill='#3B82F6'
@@ -450,75 +450,75 @@ export default function EnhancedShelf({
             <Group>
               {/* Верхняя линия */}
               <Line
-                points={[shelf.width - 24, 8, shelf.width - 8, 8]}
+                points={[shelf.width - 24, 31, shelf.width - 8, 31]}
                 stroke='white'
                 strokeWidth={1}
               />
               <Circle
                 x={shelf.width - 22}
-                y={8}
+                y={31}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 16}
-                y={8}
+                y={31}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 10}
-                y={8}
+                y={31}
                 radius={1}
                 fill='white'
               />
               
               {/* Средняя линия */}
               <Line
-                points={[shelf.width - 24, 12, shelf.width - 8, 12]}
+                points={[shelf.width - 24, 35, shelf.width - 8, 35]}
                 stroke='white'
                 strokeWidth={1}
               />
               <Circle
                 x={shelf.width - 22}
-                y={12}
+                y={35}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 16}
-                y={12}
+                y={35}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 10}
-                y={12}
+                y={35}
                 radius={1}
                 fill='white'
               />
               
               {/* Нижняя линия */}
               <Line
-                points={[shelf.width - 24, 16, shelf.width - 8, 16]}
+                points={[shelf.width - 24, 39, shelf.width - 8, 39]}
                 stroke='white'
                 strokeWidth={1}
               />
               <Circle
                 x={shelf.width - 22}
-                y={16}
+                y={39}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 16}
-                y={16}
+                y={39}
                 radius={1}
                 fill='white'
               />
               <Circle
                 x={shelf.width - 10}
-                y={16}
+                y={39}
                 radius={1}
                 fill='white'
               />

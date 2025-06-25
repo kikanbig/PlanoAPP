@@ -914,8 +914,9 @@ export default function PlanogramEditor() {
       // Вычисляем общую ширину всех товаров
       const totalProductsWidth = sortedProducts.reduce((sum, product) => sum + product.width, 0)
       
-      // Доступная ширина полки
-      const availableWidth = shelf.width
+      // Доступная ширина полки (оставляем небольшие отступы от краев)
+      const edgeMargin = 10 // отступ от краев полки
+      const availableWidth = shelf.width - (edgeMargin * 2)
       
       // Если товары не помещаются на полке, показываем предупреждение
       if (totalProductsWidth > availableWidth) {
@@ -923,25 +924,30 @@ export default function PlanogramEditor() {
         return prev
       }
 
-      // Вычисляем расстояние между товарами
+      // Вычисляем равномерные промежутки между товарами
       const totalSpacing = availableWidth - totalProductsWidth
-      const spacingBetweenProducts = totalSpacing / (sortedProducts.length + 1) // отступы с обеих сторон
+      const spacingBetweenProducts = totalSpacing / (sortedProducts.length - 1) // промежутки МЕЖДУ товарами
       
       console.log(`📐 Равномерное распределение ${sortedProducts.length} товаров:`, {
-        shelfWidth: availableWidth,
+        shelfWidth: shelf.width,
+        availableWidth,
         totalProductsWidth,
         totalSpacing,
-        spacingBetweenProducts: Math.round(spacingBetweenProducts)
+        spacingBetweenProducts: Math.round(spacingBetweenProducts),
+        edgeMargin
       })
 
-      // Обновляем позиции товаров
+      // Обновляем позиции товаров БЕЗ привязки к сетке для точного равномерного распределения
       return prev.map(item => {
         const productIndex = sortedProducts.findIndex(p => p.id === item.id)
         if (productIndex !== -1) {
           // Вычисляем новую X позицию для этого товара
-          const newX = shelf.x + spacingBetweenProducts + 
-                      sortedProducts.slice(0, productIndex).reduce((sum, p) => sum + p.width, 0) +
-                      productIndex * spacingBetweenProducts
+          let newX = shelf.x + edgeMargin // начинаем с отступа от левого края
+          
+          // Добавляем ширину всех предыдущих товаров и промежутки между ними
+          for (let i = 0; i < productIndex; i++) {
+            newX += sortedProducts[i].width + spacingBetweenProducts
+          }
           
           // Позиционируем товар к нижней границе полки
           const shelfBottomY = shelf.y + shelf.height
@@ -949,8 +955,8 @@ export default function PlanogramEditor() {
           
           return {
             ...item,
-            x: snapToGrid(newX),
-            y: snapToGrid(newY)
+            x: newX, // БЕЗ snapToGrid для точного позиционирования
+            y: newY  // БЕЗ snapToGrid для точного позиционирования
           }
         }
         return item
@@ -958,7 +964,7 @@ export default function PlanogramEditor() {
     })
     
     toast.success('Товары равномерно распределены по полке')
-  }, [snapToGrid, racks])
+  }, [racks]) // убрал snapToGrid из зависимостей
 
   const deleteItem = useCallback((id: string) => {
     // Проверяем, удаляется ли стеллаж
@@ -1056,14 +1062,43 @@ export default function PlanogramEditor() {
 
   const exportToPNG = useCallback(() => {
     if (stageRef.current) {
-      const dataURL = stageRef.current.toDataURL({ mimeType: 'image/png', quality: 1 })
-      const link = document.createElement('a')
-      link.download = `planogram-${Date.now()}.png`
-      link.href = dataURL
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      toast.success('Планограмма экспортирована')
+      // Получаем текущий размер Stage
+      const stage = stageRef.current
+      const originalScale = stage.scaleX()
+      
+      // Увеличиваем разрешение в 2 раза для лучшего качества
+      const scale = 2
+      
+      try {
+        // Временно увеличиваем масштаб для экспорта
+        stage.scale({ x: originalScale * scale, y: originalScale * scale })
+        
+        // Экспортируем с высоким качеством
+        const dataURL = stage.toDataURL({ 
+          mimeType: 'image/png',
+          quality: 1,
+          pixelRatio: scale // Увеличенное разрешение
+        })
+        
+        // Возвращаем исходный масштаб
+        stage.scale({ x: originalScale, y: originalScale })
+        
+        // Создаем и скачиваем файл
+        const link = document.createElement('a')
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+        link.download = `planogram-${timestamp}.png`
+        link.href = dataURL
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        toast.success('Планограмма экспортирована в высоком качестве')
+      } catch (error) {
+        console.error('Ошибка экспорта:', error)
+        // Возвращаем исходный масштаб в случае ошибки
+        stage.scale({ x: originalScale, y: originalScale })
+        toast.error('Ошибка экспорта планограммы')
+      }
     }
   }, [])
 
