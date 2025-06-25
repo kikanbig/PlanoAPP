@@ -1102,41 +1102,33 @@ export default function PlanogramEditor() {
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <h1 className="text-xl font-semibold text-gray-900">Редактор планограмм</h1>
-            
-            {/* Key Action Buttons */}
-            <div className="flex gap-2">
-              <button
-                onClick={savePlanogram}
-                className="btn btn-success flex items-center gap-1 text-sm py-2 px-3 shadow-md"
-                title={currentPlanogramId ? `Обновить планограмму "${currentPlanogramName}"` : "Сохранить планограмму"}
-              >
-                <CloudArrowUpIcon className="w-4 h-4" />
-                {currentPlanogramId ? 'Обновить' : 'Сохранить'}
-              </button>
-              <button
-                onClick={exportToPNG}
-                className="btn btn-secondary flex items-center gap-1 text-sm py-2 px-3 shadow-md"
-                title="Экспорт в PNG"
-              >
-                <DocumentArrowDownIcon className="w-4 h-4" />
-                PNG
-              </button>
-            </div>
-          </div>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">Редактор планограмм</h1>
           
           {currentPlanogramName && (
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 mb-3">
               📋 {currentPlanogramName}
               {currentPlanogramId && <span className="text-green-600 ml-2">● Открыта</span>}
             </p>
           )}
           
-          <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-3">
-            <p className="text-xs text-green-700">
-              📐 Фото товаров теперь растягиваются по размерам товара для точной планограммы
-            </p>
+          {/* Key Action Buttons */}
+          <div className="flex gap-3 mb-3">
+            <button
+              onClick={savePlanogram}
+              className="btn btn-success flex items-center gap-2 text-sm py-2 px-4 shadow-md flex-1"
+              title={currentPlanogramId ? `Обновить планограмму "${currentPlanogramName}"` : "Сохранить планограмму"}
+            >
+              <CloudArrowUpIcon className="w-5 h-5" />
+              {currentPlanogramId ? 'Обновить планограмму' : 'Сохранить планограмму'}
+            </button>
+            <button
+              onClick={exportToPNG}
+              className="btn btn-secondary flex items-center gap-2 text-sm py-2 px-4 shadow-md"
+              title="Экспорт в PNG"
+            >
+              <DocumentArrowDownIcon className="w-5 h-5" />
+              Экспорт PNG
+            </button>
           </div>
           
           {/* Secondary Action Buttons */}
