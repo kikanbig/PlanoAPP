@@ -579,7 +579,8 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
         let imageUrl: string | null = null
 
         // Проверяем наличие изображения в ячейке E
-        const imageCellRef = `E${rowNumber}`
+        // ИСПРАВЛЕНИЕ: изображения сдвинуты на одну строку вверх из-за заголовка
+        const imageCellRef = `E${rowNumber - 1}`
         const imageBuffer = imagesMap.get(imageCellRef)
         
         console.log(`🔍 Ищем изображение для строки ${rowNumber}:`)
