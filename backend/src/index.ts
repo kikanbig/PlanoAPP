@@ -588,9 +588,9 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
         
         if (imageBuffer) {
           try {
-            // Создаем уникальное имя файла с названием товара
-            const safeName = name.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_').substring(0, 30)
-            const fileName = `import_${safeName}_row${rowNumber}_${Date.now()}.png`
+            // Создаем уникальное имя файла БЕЗ русских символов (только латиница и цифры)
+            const safeName = name.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20)
+            const fileName = `import_${safeName}_${rowNumber}_${Date.now()}.png`
             const uploadPath = path.join(uploadsDir, fileName)
             
             // Сохраняем файл
