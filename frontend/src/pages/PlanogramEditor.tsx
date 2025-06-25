@@ -23,6 +23,7 @@ export default function PlanogramEditor() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [productsLoading, setProductsLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showPropertiesModal, setShowPropertiesModal] = useState(false)
   const [settings, setSettings] = useState<PlanogramSettings>({
     gridSizeMm: 50,
@@ -109,6 +110,14 @@ export default function PlanogramEditor() {
       setProductsLoading(false)
     }
   }
+
+  // Получаем уникальные категории товаров
+  const categories = ['all', ...new Set(products.map(p => p.category))]
+  
+  // Фильтруем товары по выбранной категории
+  const filteredProducts = selectedCategory === 'all' 
+    ? products 
+    : products.filter(p => p.category === selectedCategory)
 
   // Функция для загрузки изображений
   const loadImage = useCallback((imageUrl: string): Promise<HTMLImageElement> => {
@@ -1093,19 +1102,45 @@ export default function PlanogramEditor() {
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-semibold text-gray-900">Редактор планограмм</h1>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-xl font-semibold text-gray-900">Редактор планограмм</h1>
+            
+            {/* Key Action Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={savePlanogram}
+                className="btn btn-success flex items-center gap-1 text-sm py-2 px-3 shadow-md"
+                title={currentPlanogramId ? `Обновить планограмму "${currentPlanogramName}"` : "Сохранить планограмму"}
+              >
+                <CloudArrowUpIcon className="w-4 h-4" />
+                {currentPlanogramId ? 'Обновить' : 'Сохранить'}
+              </button>
+              <button
+                onClick={exportToPNG}
+                className="btn btn-secondary flex items-center gap-1 text-sm py-2 px-3 shadow-md"
+                title="Экспорт в PNG"
+              >
+                <DocumentArrowDownIcon className="w-4 h-4" />
+                PNG
+              </button>
+            </div>
+          </div>
+          
           {currentPlanogramName && (
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-gray-600 mb-2">
               📋 {currentPlanogramName}
               {currentPlanogramId && <span className="text-green-600 ml-2">● Открыта</span>}
             </p>
           )}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2 mb-3">
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-3">
             <p className="text-xs text-green-700">
               📐 Фото товаров теперь растягиваются по размерам товара для точной планограммы
             </p>
           </div>
-          <div className="flex gap-2 mt-3">
+          
+          {/* Secondary Action Buttons */}
+          <div className="flex gap-2 flex-wrap">
             <button
               onClick={createNewPlanogram}
               className="btn btn-secondary flex items-center gap-1 text-sm py-1 px-2"
@@ -1129,22 +1164,6 @@ export default function PlanogramEditor() {
             >
               <CubeIcon className="w-4 h-4" />
               Стеллаж
-            </button>
-            <button
-              onClick={savePlanogram}
-              className="btn btn-success flex items-center gap-1 text-sm py-1 px-2"
-              title={currentPlanogramId ? `Обновить планограмму "${currentPlanogramName}"` : "Сохранить планограмму"}
-            >
-              <CloudArrowUpIcon className="w-4 h-4" />
-              {currentPlanogramId ? 'Обновить' : 'Сохранить'}
-            </button>
-            <button
-              onClick={exportToPNG}
-              className="btn btn-secondary flex items-center gap-1 text-sm py-1 px-2"
-              title="Экспорт в PNG"
-            >
-              <DocumentArrowDownIcon className="w-4 h-4" />
-              PNG
             </button>
             {selectedId && (
               <button
@@ -1329,6 +1348,29 @@ export default function PlanogramEditor() {
           <h3 className="text-sm font-medium text-gray-900 mb-2">
             Каталог товаров
           </h3>
+          
+          {/* Category Filter */}
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Фильтр по категории:
+            </label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">📦 Все категории ({products.length})</option>
+              {categories.slice(1).map(category => {
+                const count = products.filter(p => p.category === category).length
+                return (
+                  <option key={category} value={category}>
+                    {category} ({count})
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+          
           <div className="space-y-2 overflow-y-auto flex-1">
             {productsLoading ? (
               <div className="flex justify-center items-center py-8">
@@ -1336,7 +1378,7 @@ export default function PlanogramEditor() {
                 <span className="ml-2 text-sm text-gray-600">Загрузка...</span>
               </div>
             ) : (
-              products.map((product) => (
+              filteredProducts.map((product) => (
               <div
                 key={product.id}
                 className="p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
