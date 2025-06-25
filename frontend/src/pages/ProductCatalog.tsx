@@ -95,7 +95,7 @@ export default function ProductCatalog() {
               Каталог товаров
             </h1>
             <p className="text-gray-600 mt-2">
-              Управление товарами для планограмм
+              Управление товарами для планограмм · {filteredProducts.length} из {products.length} товаров
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
               <p className="text-sm text-blue-800">
@@ -141,59 +141,116 @@ export default function ProductCatalog() {
           </div>
         </div>
 
-        {/* Products Grid */}
+        {/* Products List */}
         {loading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
             <span className="ml-2 text-gray-600">Загрузка товаров...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-            <div key={product.id} className="card p-6">
-              <div className="flex items-center justify-between mb-4">
-                {product.imageUrl ? (
-                  <img
-                    src={product.imageUrl.startsWith('/') ? `${window.location.origin}${product.imageUrl}` : product.imageUrl}
-                    alt={product.name}
-                    className="w-12 h-12 rounded-lg border border-gray-300 object-cover"
-                  />
-                ) : (
-                  <div
-                    className="w-12 h-12 rounded-lg border border-gray-300"
-                    style={{ backgroundColor: product.color }}
-                  />
-                )}
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleEditProduct(product)}
-                    className="p-2 text-gray-400 hover:text-primary-600 transition-colors"
-                  >
-                    <PencilIcon className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <TrashIcon className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              
-              <h3 className="font-semibold text-gray-900 mb-2">
-                {product.name}
-              </h3>
-              
-              <div className="space-y-1 text-sm text-gray-600">
-                <p>Категория: {product.category}</p>
-                <p>Размеры: {product.width}×{product.height}×{product.depth}мм</p>
-                <p>Отступ: {product.spacing || 2}мм</p>
-                {product.barcode && (
-                  <p>Штрихкод: {product.barcode}</p>
-                )}
-              </div>
+          <div className="card">
+            {/* Table Header */}
+            <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 bg-gray-50 font-medium text-sm text-gray-700">
+              <div className="col-span-1">Фото</div>
+              <div className="col-span-3">Название</div>
+              <div className="col-span-2">Категория</div>
+              <div className="col-span-2">Размеры (мм)</div>
+              <div className="col-span-1">Отступ</div>
+              <div className="col-span-2">Штрихкод</div>
+              <div className="col-span-1">Действия</div>
             </div>
-          ))}
+            
+            {/* Products List */}
+            <div className="divide-y divide-gray-200">
+              {filteredProducts.map((product) => (
+                <div key={product.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors">
+                  {/* Image */}
+                  <div className="col-span-1">
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl.startsWith('/') ? `${window.location.origin}${product.imageUrl}` : product.imageUrl}
+                        alt={product.name}
+                        className="w-12 h-12 rounded-lg border border-gray-300 object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-12 h-12 rounded-lg border border-gray-300 flex items-center justify-center"
+                        style={{ backgroundColor: product.color }}
+                      >
+                        <span className="text-xs font-medium text-white">
+                          {product.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Name */}
+                  <div className="col-span-3 flex items-center">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">
+                        {product.name}
+                      </h3>
+                      <p className="text-sm text-gray-500">ID: {product.id}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Category */}
+                  <div className="col-span-2 flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {product.category}
+                    </span>
+                  </div>
+                  
+                  {/* Dimensions */}
+                  <div className="col-span-2 flex items-center">
+                    <div className="text-sm">
+                      <div className="font-mono text-gray-900">
+                        {product.width} × {product.height} × {product.depth}
+                      </div>
+                      <div className="text-gray-500">
+                        Ш × В × Г
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Spacing */}
+                  <div className="col-span-1 flex items-center">
+                    <span className="text-sm text-gray-900 font-mono">
+                      {product.spacing || 2}мм
+                    </span>
+                  </div>
+                  
+                  {/* Barcode */}
+                  <div className="col-span-2 flex items-center">
+                    {product.barcode ? (
+                      <span className="font-mono text-sm text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                        {product.barcode}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 text-sm">—</span>
+                    )}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="col-span-1 flex items-center space-x-2">
+                    <button
+                      onClick={() => handleEditProduct(product)}
+                      className="p-2 text-gray-400 hover:text-primary-600 transition-colors rounded-md hover:bg-primary-50"
+                      title="Редактировать товар"
+                    >
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(product.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-md hover:bg-red-50"
+                      title="Удалить товар"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
