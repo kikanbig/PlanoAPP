@@ -365,11 +365,26 @@ app.post('/api/planograms', async (req: Request, res: Response) => {
 app.put('/api/planograms/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, data } = req.body
+    const { name, category, items, racks, settings } = req.body
+    
+    // Создаем объект планограммы совместимый с типами (аналогично POST)
+    const planogramData = {
+      name,
+      category: category || 'Основная',
+      items: items || [],
+      racks: racks || [],
+      settings: settings || {}
+    }
+    
+    console.log(`🔄 Обновляем планограмму "${name}" (ID: ${id}) с данными:`, {
+      itemsCount: items?.length || 0,
+      racksCount: racks?.length || 0,
+      hasSettings: !!settings
+    })
     
     const updatedPlanogram = await db.updatePlanogram(id, {
       name,
-      data,
+      data: JSON.stringify(planogramData), // Сохраняем как JSON строку
       updatedAt: new Date().toISOString()
     })
     
@@ -377,6 +392,7 @@ app.put('/api/planograms/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Планограмма не найдена' })
     }
     
+    console.log(`✅ Планограмма "${name}" успешно обновлена`)
     res.json(updatedPlanogram)
   } catch (error) {
     console.error('Error updating planogram:', error)
