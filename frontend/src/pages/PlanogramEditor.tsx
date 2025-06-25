@@ -1,9 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Stage, Layer, Rect, Group } from 'react-konva'
 import { 
- 
   TrashIcon, 
   DocumentArrowDownIcon,
+  DocumentPlusIcon,
   Cog6ToothIcon,
   CubeIcon,
   RectangleStackIcon,
@@ -36,6 +36,8 @@ export default function PlanogramEditor() {
     defaultShelfDepth: 400
   })
   const [images, setImages] = useState<{ [key: string]: HTMLImageElement }>({})
+  const [currentPlanogramId, setCurrentPlanogramId] = useState<string | null>(null)
+  const [currentPlanogramName, setCurrentPlanogramName] = useState<string>('')
   const stageRef = useRef<any>(null)
 
   // Загружаем товары при инициализации
@@ -76,6 +78,10 @@ export default function PlanogramEditor() {
             return newSettings
           })
         }
+        
+        // Сохраняем информацию о текущей планограмме
+        setCurrentPlanogramId(planogram.id)
+        setCurrentPlanogramName(planogram.name)
         
         // Разрешаем масштабирование через небольшую задержку
         setTimeout(() => {
@@ -960,8 +966,29 @@ export default function PlanogramEditor() {
   }, [])
 
   const savePlanogram = useCallback(async () => {
-    const planogramName = prompt('Введите название планограммы:', `Планограмма ${new Date().toLocaleDateString()}`)
-    if (!planogramName) return
+    // Если планограмма уже открыта, предлагаем обновить или сохранить как новую
+    let planogramName = currentPlanogramName || ''
+    let shouldUpdate = false
+    
+    if (currentPlanogramId && currentPlanogramName) {
+      const action = confirm(
+        `Планограмма "${currentPlanogramName}" уже открыта.\n\n` +
+        'Нажмите "ОК" чтобы ОБНОВИТЬ существующую планограмму,\n' +
+        'или "Отмена" чтобы сохранить как новую.'
+      )
+      
+      if (action) {
+        shouldUpdate = true
+      } else {
+        const newName = prompt('Введите название новой планограммы:', `${currentPlanogramName} (копия)`)
+        if (!newName) return
+        planogramName = newName
+      }
+    } else {
+      const newName = prompt('Введите название планограммы:', `Планограмма ${new Date().toLocaleDateString()}`)
+      if (!newName) return
+      planogramName = newName
+    }
 
     try {
       const planogramData = {
@@ -972,13 +999,53 @@ export default function PlanogramEditor() {
         settings: settings
       }
 
-      await apiService.createPlanogram(planogramData)
-      toast.success('Планограмма сохранена успешно!')
+      if (shouldUpdate && currentPlanogramId) {
+        await apiService.updatePlanogram(currentPlanogramId, planogramData)
+        setCurrentPlanogramName(planogramName)
+        toast.success(`Планограмма "${planogramName}" обновлена!`)
+      } else {
+        const newPlanogram = await apiService.createPlanogram(planogramData)
+        setCurrentPlanogramId(newPlanogram.id)
+        setCurrentPlanogramName(newPlanogram.name)
+        toast.success('Планограмма сохранена как новая!')
+      }
     } catch (error) {
       console.error('Ошибка сохранения планограммы:', error)
       toast.error('Ошибка сохранения планограммы')
     }
-  }, [items, racks, settings])
+  }, [items, racks, settings, currentPlanogramId, currentPlanogramName])
+
+  const createNewPlanogram = useCallback(() => {
+    if (items.length > 0 || racks.length > 0) {
+      const shouldClear = confirm(
+        'Создать новую планограмму?\n\n' +
+        'Текущие данные будут очищены. Убедитесь что вы сохранили изменения.'
+      )
+      if (!shouldClear) return
+    }
+    
+    // Очищаем все данные
+    setItems([])
+    setRacks([])
+    setSelectedId(null)
+    setCurrentPlanogramId(null)
+    setCurrentPlanogramName('')
+    
+    // Сбрасываем настройки к дефолтным
+    setSettings({
+      gridSizeMm: 50,
+      pixelsPerMm: 0.5,
+      showGrid: true,
+      snapToGrid: true,
+      canvasWidth: 1200,
+      canvasHeight: 800,
+      showDimensions: true,
+      show3D: true,
+      defaultShelfDepth: 400
+    })
+    
+    toast.success('Новая планограмма создана')
+  }, [items.length, racks.length])
 
   // Обработка клавиатуры
   useEffect(() => {
@@ -1027,12 +1094,26 @@ export default function PlanogramEditor() {
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-900">Редактор планограмм</h1>
+          {currentPlanogramName && (
+            <p className="text-sm text-gray-600 mt-1">
+              📋 {currentPlanogramName}
+              {currentPlanogramId && <span className="text-green-600 ml-2">● Открыта</span>}
+            </p>
+          )}
           <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2 mb-3">
             <p className="text-xs text-green-700">
               📐 Фото товаров теперь растягиваются по размерам товара для точной планограммы
             </p>
           </div>
           <div className="flex gap-2 mt-3">
+            <button
+              onClick={createNewPlanogram}
+              className="btn btn-secondary flex items-center gap-1 text-sm py-1 px-2"
+              title="Создать новую планограмму"
+            >
+              <DocumentPlusIcon className="w-4 h-4" />
+              Новая
+            </button>
             <button
               onClick={() => addShelf()}
               className="btn btn-primary flex items-center gap-1 text-sm py-1 px-2"
@@ -1052,10 +1133,10 @@ export default function PlanogramEditor() {
             <button
               onClick={savePlanogram}
               className="btn btn-success flex items-center gap-1 text-sm py-1 px-2"
-              title="Сохранить планограмму"
+              title={currentPlanogramId ? `Обновить планограмму "${currentPlanogramName}"` : "Сохранить планограмму"}
             >
               <CloudArrowUpIcon className="w-4 h-4" />
-              Сохранить
+              {currentPlanogramId ? 'Обновить' : 'Сохранить'}
             </button>
             <button
               onClick={exportToPNG}
