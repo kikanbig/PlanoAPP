@@ -9,6 +9,7 @@ interface EnhancedShelfProps {
   onClick?: () => void
   onDragEnd?: (e: any) => void
   onTransformEnd?: (e: any) => void
+  onDistributeProducts?: (shelfId: string) => void
 }
 
 export default function EnhancedShelf({ 
@@ -17,7 +18,8 @@ export default function EnhancedShelf({
   isSelected, 
   onClick, 
   onDragEnd,
-  onTransformEnd 
+  onTransformEnd,
+  onDistributeProducts 
 }: EnhancedShelfProps) {
   const shelfRef = useRef<any>(null)
   const transformerRef = useRef<any>(null)
@@ -103,6 +105,14 @@ export default function EnhancedShelf({
         width: newWidth,
         height: newHeight
       })
+    }
+  }
+
+  // Обработчик клика по кнопке распределения товаров
+  const handleDistributeClick = (e: any) => {
+    e.cancelBubble = true // Предотвращаем всплытие события
+    if (onDistributeProducts) {
+      onDistributeProducts(shelf.id)
     }
   }
 
@@ -420,6 +430,102 @@ export default function EnhancedShelf({
           cornerRadius={3}
         />
         
+        {/* Кнопка равномерного распределения товаров */}
+        {onDistributeProducts && (
+          <Group
+            onClick={handleDistributeClick}
+            onTap={handleDistributeClick}
+          >
+            {/* Фон кнопки */}
+            <Rect
+              x={shelf.width - 28}
+              y={2}
+              width={26}
+              height={20}
+              fill='#3B82F6'
+              cornerRadius={3}
+              opacity={0.9}
+            />
+            {/* Иконка распределения (три линии с точками) */}
+            <Group>
+              {/* Верхняя линия */}
+              <Line
+                points={[shelf.width - 24, 8, shelf.width - 8, 8]}
+                stroke='white'
+                strokeWidth={1}
+              />
+              <Circle
+                x={shelf.width - 22}
+                y={8}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 16}
+                y={8}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 10}
+                y={8}
+                radius={1}
+                fill='white'
+              />
+              
+              {/* Средняя линия */}
+              <Line
+                points={[shelf.width - 24, 12, shelf.width - 8, 12]}
+                stroke='white'
+                strokeWidth={1}
+              />
+              <Circle
+                x={shelf.width - 22}
+                y={12}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 16}
+                y={12}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 10}
+                y={12}
+                radius={1}
+                fill='white'
+              />
+              
+              {/* Нижняя линия */}
+              <Line
+                points={[shelf.width - 24, 16, shelf.width - 8, 16]}
+                stroke='white'
+                strokeWidth={1}
+              />
+              <Circle
+                x={shelf.width - 22}
+                y={16}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 16}
+                y={16}
+                radius={1}
+                fill='white'
+              />
+              <Circle
+                x={shelf.width - 10}
+                y={16}
+                radius={1}
+                fill='white'
+              />
+            </Group>
+          </Group>
+        )}
+        
         {/* Индикатор глубины */}
         {settings.show3D && shelfDepth > 200 && (
           <Rect
@@ -477,7 +583,7 @@ export default function EnhancedShelf({
         {/* Название типа полки */}
         <Text
           x={shelf.width - 5}
-          y={5}
+          y={shelf.height - 15}
           text={shelf.shelfType || 'standard'}
           fontSize={8}
           fill={style.accent}

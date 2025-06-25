@@ -751,7 +751,7 @@ export default function PlanogramEditor() {
     })
 
     // Ищем свободное место для товара
-    const spacingPx = mmToPixels(product.spacing || 2) // используем spacing из товара
+    const spacingPx = mmToPixels(product.spacing || 50) // используем spacing из товара (по умолчанию 50мм)
     let nextX = shelf.x // начинаем от левого края полки
 
     console.log(`🔍 Начинаем поиск места для товара "${product.name}":`, {
@@ -865,6 +865,99 @@ export default function PlanogramEditor() {
         return item
       })
     })
+  }, [snapToGrid, racks])
+
+  // Функция для равномерного распределения товаров на полке
+  const distributeProductsEvenly = useCallback((shelfId: string) => {
+    setItems(prev => {
+      // Находим полку сначала в items (отдельные полки), затем в racks (полки стеллажей)
+      let shelf = prev.find(item => item.id === shelfId)
+      
+      if (!shelf) {
+        // Ищем в полках стеллажей
+        for (const rack of racks) {
+          const rackShelf = rack.shelves.find(s => s.id === shelfId)
+          if (rackShelf) {
+            shelf = rackShelf
+            break
+          }
+        }
+      }
+      
+      if (!shelf) {
+        console.warn('Полка не найдена:', shelfId)
+        return prev
+      }
+
+      // Находим все товары на этой полке
+      const productsOnShelf = prev.filter(item => 
+        item.type === 'product' && 
+        item.x >= shelf.x - 10 && 
+        item.x < shelf.x + shelf.width + 10 && 
+        item.y >= shelf.y - 50 && 
+        item.y <= shelf.y + shelf.height + 50
+      )
+
+      if (productsOnShelf.length === 0) {
+        toast.success('На полке нет товаров для распределения')
+        return prev
+      }
+
+      if (productsOnShelf.length === 1) {
+        toast.success('На полке только один товар')
+        return prev
+      }
+
+      // Сортируем товары по X координате (слева направо)
+      const sortedProducts = [...productsOnShelf].sort((a, b) => a.x - b.x)
+      
+      // Вычисляем общую ширину всех товаров
+      const totalProductsWidth = sortedProducts.reduce((sum, product) => sum + product.width, 0)
+      
+      // Доступная ширина полки
+      const availableWidth = shelf.width
+      
+      // Если товары не помещаются на полке, показываем предупреждение
+      if (totalProductsWidth > availableWidth) {
+        toast.error('Товары слишком широкие для равномерного размещения на полке')
+        return prev
+      }
+
+      // Вычисляем расстояние между товарами
+      const totalSpacing = availableWidth - totalProductsWidth
+      const spacingBetweenProducts = totalSpacing / (sortedProducts.length + 1) // отступы с обеих сторон
+      
+      console.log(`📐 Равномерное распределение ${sortedProducts.length} товаров:`, {
+        shelfWidth: availableWidth,
+        totalProductsWidth,
+        totalSpacing,
+        spacingBetweenProducts: Math.round(spacingBetweenProducts)
+      })
+
+      // Обновляем позиции товаров
+      return prev.map(item => {
+        const productIndex = sortedProducts.findIndex(p => p.id === item.id)
+        if (productIndex !== -1) {
+          // Вычисляем новую X позицию для этого товара
+          const newX = shelf.x + spacingBetweenProducts + 
+                      sortedProducts.slice(0, productIndex).reduce((sum, p) => sum + p.width, 0) +
+                      productIndex * spacingBetweenProducts
+          
+          // Позиционируем товар к нижней границе полки
+          const shelfBottomY = shelf.y + shelf.height
+          const newY = shelfBottomY - item.height
+          
+          return {
+            ...item,
+            x: snapToGrid(newX),
+            y: snapToGrid(newY)
+          }
+        }
+        return item
+      })
+    })
+    
+    toast.success('Товары равномерно распределены по полке')
   }, [snapToGrid, racks])
 
   const deleteItem = useCallback((id: string) => {
@@ -1555,6 +1648,7 @@ export default function PlanogramEditor() {
                     onClick={() => setSelectedId(shelf.id)}
                     onDragEnd={() => {}} // Полки стеллажей не должны перемещаться независимо
                     onTransformEnd={() => {}} // Полки стеллажей не должны изменять размер независимо
+                    onDistributeProducts={distributeProductsEvenly}
                   />
                 ))
               })()}
@@ -1592,6 +1686,7 @@ export default function PlanogramEditor() {
                       // Перемещаем товары к новой нижней границе полки
                       setTimeout(() => repositionProductsOnShelf(item.id), 200)
                     }}
+                    onDistributeProducts={distributeProductsEvenly}
                   />
                 ))}
             </Layer>

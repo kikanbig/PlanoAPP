@@ -257,7 +257,7 @@ export default function ProductCatalog() {
                   {/* Spacing */}
                   <div className="col-span-1 flex items-center">
                     <span className="text-sm text-gray-900 font-mono">
-                      {product.spacing || 2}мм
+                      {product.spacing || 50}мм
                     </span>
                   </div>
                   
@@ -372,7 +372,7 @@ function ProductModal({ product, onSave, onClose }: ProductModalProps) {
     category: product?.category || '',
     barcode: product?.barcode || '',
     imageUrl: product?.imageUrl || null,
-    spacing: product?.spacing || 2
+                    spacing: product?.spacing || 50
   })
 
   const handleSubmit = (e: React.FormEvent) => {
