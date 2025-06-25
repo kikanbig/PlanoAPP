@@ -6,6 +6,7 @@ import dotenv from 'dotenv'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
+import * as XLSX from 'xlsx'
 import { createDatabaseAdapter } from './database'
 
 // Import custom types
@@ -54,7 +55,8 @@ const storage = multer.diskStorage({
   }
 })
 
-const upload = multer({ 
+// Multer для изображений
+const imageUpload = multer({ 
   storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
@@ -67,6 +69,27 @@ const upload = multer({
     }
   }
 })
+
+// Multer для Excel файлов (только в памяти, не сохраняем на диск)
+const excelUpload = multer({ 
+  storage: multer.memoryStorage(), // Храним в памяти для обработки
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit для больших Excel файлов
+  },
+  fileFilter: (req: Request, file: MulterFile, cb: FileFilterCallback) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.originalname.toLowerCase().endsWith('.xlsx') ||
+        file.originalname.toLowerCase().endsWith('.xls')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed!'))
+    }
+  }
+})
+
+// Для обратной совместимости
+const upload = imageUpload
 
 // Middleware
 app.use(helmet({
@@ -413,6 +436,150 @@ app.delete('/api/planograms/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error deleting planogram:', error)
     res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// Excel Import route
+app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No Excel file uploaded' })
+    }
+
+    console.log(`📊 Processing Excel file: ${req.file.originalname}`)
+    console.log(`📄 File size: ${(req.file.size / 1024).toFixed(2)} KB`)
+
+    // Читаем Excel файл из буфера
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' })
+    const sheetName = workbook.SheetNames[0] // Берем первый лист
+    const worksheet = workbook.Sheets[sheetName]
+    
+    // Преобразуем в JSON с сохранением пустых ячеек
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+      header: 1, // Массив массивов
+      defval: '', // Значение по умолчанию для пустых ячеек
+      raw: false // Преобразовывать значения в строки
+    }) as any[][]
+
+    console.log(`📋 Excel sheet "${sheetName}" loaded with ${jsonData.length} rows`)
+
+    if (jsonData.length < 2) {
+      return res.status(400).json({ error: 'Excel файл должен содержать минимум 2 строки (заголовок + данные)' })
+    }
+
+    const products: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>[] = []
+    const errors: string[] = []
+    let processedImages = 0
+
+    // Начинаем с второй строки (индекс 1), пропуская заголовок
+    for (let i = 1; i < jsonData.length; i++) {
+      const row = jsonData[i]
+      
+      try {
+        // Извлекаем данные согласно структуре:
+        // A - категория, B - название, E - изображение, J - ширина, K - глубина, L - высота
+        const category = row[0]?.toString().trim() || 'Без категории' // Столбец A
+        const name = row[1]?.toString().trim() // Столбец B
+        const imageData = row[4] // Столбец E (изображение)
+        const width = parseFloat(row[9]) || 50 // Столбец J
+        const depth = parseFloat(row[10]) || 50 // Столбец K  
+        const height = parseFloat(row[11]) || 50 // Столбец L
+
+        if (!name) {
+          errors.push(`Строка ${i + 1}: пустое название товара`)
+          continue
+        }
+
+        let imageUrl: string | null = null
+
+        // Обработка изображения если есть данные в столбце E
+        if (imageData && typeof imageData === 'string' && imageData.startsWith('data:image')) {
+          try {
+            // Извлекаем base64 данные
+            const base64Data = imageData.split(',')[1]
+            const imageBuffer = Buffer.from(base64Data, 'base64')
+            
+            // Определяем расширение файла из MIME типа
+            const mimeType = imageData.split(';')[0].split(':')[1]
+            const extension = mimeType.split('/')[1]
+            
+            // Создаем уникальное имя файла
+            const fileName = `import_${Date.now()}_${i}.${extension}`
+            const uploadPath = path.join(uploadsDir, fileName)
+            
+            // Сохраняем файл
+            fs.writeFileSync(uploadPath, imageBuffer)
+            imageUrl = `/uploads/${fileName}`
+            processedImages++
+            
+            console.log(`🖼️  Изображение сохранено: ${fileName}`)
+          } catch (imageError) {
+            console.warn(`⚠️  Ошибка обработки изображения в строке ${i + 1}:`, imageError)
+            errors.push(`Строка ${i + 1}: ошибка обработки изображения`)
+          }
+        }
+
+        const product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
+          name,
+          category,
+          width,
+          height,
+          depth,
+          color: '#E5E7EB', // Цвет по умолчанию
+          barcode: '', // Штрихкод пустой по умолчанию
+          imageUrl,
+          spacing: 2 // Отступ по умолчанию
+        }
+
+        products.push(product)
+        
+      } catch (rowError) {
+        console.error(`Ошибка обработки строки ${i + 1}:`, rowError)
+        errors.push(`Строка ${i + 1}: ${rowError instanceof Error ? rowError.message : 'Неизвестная ошибка'}`)
+      }
+    }
+
+    console.log(`✅ Обработано товаров: ${products.length}`)
+    console.log(`🖼️  Обработано изображений: ${processedImages}`)
+    console.log(`⚠️  Ошибок: ${errors.length}`)
+
+    // Сохраняем товары в базу данных
+    const savedProducts: Product[] = []
+    for (const productData of products) {
+      try {
+        const savedProduct = await db.addProduct({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          ...productData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        savedProducts.push(savedProduct)
+      } catch (saveError) {
+        console.error('Ошибка сохранения товара:', saveError)
+        errors.push(`Ошибка сохранения товара "${productData.name}"`)
+      }
+    }
+
+    // Отправляем результат
+    res.json({
+      success: true,
+      message: `Импорт завершен успешно!`,
+      statistics: {
+        totalRows: jsonData.length - 1, // Исключаем заголовок
+        processedProducts: savedProducts.length,
+        processedImages,
+        errors: errors.length
+      },
+      products: savedProducts,
+      errors: errors.length > 0 ? errors : undefined
+    })
+
+  } catch (error) {
+    console.error('Error importing Excel file:', error)
+    res.status(500).json({ 
+      error: 'Ошибка импорта Excel файла',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    })
   }
 })
 

@@ -11,18 +11,19 @@
     "start": "npm run preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.1",
-    "konva": "^9.2.0",
-    "react-konva": "^18.2.10",
-    "zustand": "^4.4.7",
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.0.18",
     "clsx": "^2.0.0",
-    "tailwind-merge": "^2.1.0",
+    "konva": "^9.2.0",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
-    "lucide-react": "^0.294.0"
+    "react-konva": "^18.2.10",
+    "react-router-dom": "^6.20.1",
+    "tailwind-merge": "^2.1.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
@@ -39,4 +40,4 @@
     "typescript": "^5.2.2",
     "vite": "^5.0.0"
   }
-} 
+}

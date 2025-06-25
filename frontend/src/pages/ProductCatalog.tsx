@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { Product } from '../types'
 import ImageUpload from '../components/ImageUpload'
+import ExcelImport from '../components/ExcelImport'
 import { apiService } from '../services/api'
 
 
@@ -14,6 +15,7 @@ export default function ProductCatalog() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [showImportModal, setShowImportModal] = useState(false)
 
   // Загружаем товары при инициализации
   useEffect(() => {
@@ -85,6 +87,11 @@ export default function ProductCatalog() {
     }
   }
 
+  const handleImportComplete = () => {
+    loadProducts() // Перезагружаем товары после импорта
+    setShowImportModal(false)
+  }
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
@@ -103,13 +110,22 @@ export default function ProductCatalog() {
               </p>
             </div>
           </div>
-          <button
-            onClick={handleAddProduct}
-            className="btn btn-primary flex items-center"
-          >
-            <PlusIcon className="w-5 h-5 mr-2" />
-            Добавить товар
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="btn btn-secondary flex items-center"
+            >
+              <DocumentArrowUpIcon className="w-5 h-5 mr-2" />
+              Импорт из Excel
+            </button>
+            <button
+              onClick={handleAddProduct}
+              className="btn btn-primary flex items-center"
+            >
+              <PlusIcon className="w-5 h-5 mr-2" />
+              Добавить товар
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -267,6 +283,14 @@ export default function ProductCatalog() {
           product={editingProduct}
           onSave={handleSaveProduct}
           onClose={() => setIsModalOpen(false)}
+        />
+      )}
+
+      {/* Excel Import Modal */}
+      {showImportModal && (
+        <ExcelImport
+          onImportComplete={handleImportComplete}
+          onClose={() => setShowImportModal(false)}
         />
       )}
     </div>
