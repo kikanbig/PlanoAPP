@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowUpIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, DocumentArrowUpIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import { Product } from '../types'
 import ImageUpload from '../components/ImageUpload'
@@ -16,6 +16,7 @@ export default function ProductCatalog() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false)
 
   // Загружаем товары при инициализации
   useEffect(() => {
@@ -92,6 +93,21 @@ export default function ProductCatalog() {
     setShowImportModal(false)
   }
 
+  const handleDeleteAllProducts = async () => {
+    try {
+      // Удаляем все товары
+      for (const product of products) {
+        await apiService.deleteProduct(product.id)
+      }
+      setProducts([])
+      toast.success(`Удалено ${products.length} товаров`)
+      setShowDeleteAllModal(false)
+    } catch (error) {
+      console.error('Ошибка массового удаления:', error)
+      toast.error('Ошибка при удалении товаров')
+    }
+  }
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
@@ -118,6 +134,15 @@ export default function ProductCatalog() {
               <DocumentArrowUpIcon className="w-5 h-5 mr-2" />
               Импорт из Excel
             </button>
+            {products.length > 0 && (
+              <button
+                onClick={() => setShowDeleteAllModal(true)}
+                className="btn btn-secondary text-red-600 border-red-200 hover:bg-red-50 flex items-center"
+              >
+                <TrashIcon className="w-5 h-5 mr-2" />
+                Удалить все ({products.length})
+              </button>
+            )}
             <button
               onClick={handleAddProduct}
               className="btn btn-primary flex items-center"
@@ -176,8 +201,8 @@ export default function ProductCatalog() {
               <div className="col-span-1">Действия</div>
             </div>
             
-            {/* Products List */}
-            <div className="divide-y divide-gray-200">
+            {/* Products List - с ограничением высоты и скроллом */}
+            <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
               {filteredProducts.map((product) => (
                 <div key={product.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-gray-50 transition-colors">
                   {/* Image */}
@@ -292,6 +317,40 @@ export default function ProductCatalog() {
           onImportComplete={handleImportComplete}
           onClose={() => setShowImportModal(false)}
         />
+      )}
+
+      {/* Delete All Confirmation Modal */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center mb-4">
+              <ExclamationTriangleIcon className="w-6 h-6 text-red-600 mr-3" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Удалить все товары?
+              </h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Вы собираетесь удалить все <strong>{products.length}</strong> товаров из каталога. 
+              Это действие нельзя отменить.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteAllModal(false)}
+                className="btn btn-secondary"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleDeleteAllProducts}
+                className="btn btn-primary bg-red-600 hover:bg-red-700 border-red-600"
+              >
+                Удалить все
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

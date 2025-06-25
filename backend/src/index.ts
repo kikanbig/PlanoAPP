@@ -7,6 +7,7 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 import * as XLSX from 'xlsx'
+import * as ExcelJS from 'exceljs'
 import { createDatabaseAdapter } from './database'
 
 // Import custom types
@@ -449,21 +450,19 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
     console.log(`📊 Processing Excel file: ${req.file.originalname}`)
     console.log(`📄 File size: ${(req.file.size / 1024).toFixed(2)} KB`)
 
-    // Читаем Excel файл из буфера
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' })
-    const sheetName = workbook.SheetNames[0] // Берем первый лист
-    const worksheet = workbook.Sheets[sheetName]
+    // Используем ExcelJS для обработки изображений
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(req.file.buffer)
     
-    // Преобразуем в JSON с сохранением пустых ячеек
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
-      header: 1, // Массив массивов
-      defval: '', // Значение по умолчанию для пустых ячеек
-      raw: false // Преобразовывать значения в строки
-    }) as any[][]
+    const worksheet = workbook.getWorksheet(1) // Берем первый лист
+    
+    if (!worksheet) {
+      return res.status(400).json({ error: 'Excel файл не содержит листов' })
+    }
 
-    console.log(`📋 Excel sheet "${sheetName}" loaded with ${jsonData.length} rows`)
+    console.log(`📋 Excel sheet "${worksheet.name}" loaded with ${worksheet.rowCount} rows`)
 
-    if (jsonData.length < 2) {
+    if (worksheet.rowCount < 2) {
       return res.status(400).json({ error: 'Excel файл должен содержать минимум 2 строки (заголовок + данные)' })
     }
 
@@ -471,40 +470,57 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
     const errors: string[] = []
     let processedImages = 0
 
-    // Начинаем с второй строки (индекс 1), пропуская заголовок
-    for (let i = 1; i < jsonData.length; i++) {
-      const row = jsonData[i]
+    // Извлекаем изображения из листа
+    const imagesMap = new Map<string, Buffer>()
+    
+    if (worksheet.getImages) {
+      const images = worksheet.getImages()
+      console.log(`🖼️  Найдено изображений в Excel: ${images.length}`)
+      
+              for (const image of images) {
+          try {
+            const media = (workbook.model as any).media
+            const imageBuffer = media && media[image.imageId]
+            if (imageBuffer && imageBuffer.buffer) {
+              // Определяем ячейку изображения (примерно)
+              const cellRef = `E${image.range?.tl?.row || 1}`
+              imagesMap.set(cellRef, imageBuffer.buffer)
+              console.log(`🖼️  Изображение найдено в ячейке: ${cellRef}`)
+            }
+          } catch (err) {
+            console.warn('Ошибка извлечения изображения:', err)
+          }
+        }
+    }
+
+    // Начинаем с второй строки (индекс 2), пропуская заголовок
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber)
       
       try {
         // Извлекаем данные согласно структуре:
         // A - категория, B - название, E - изображение, J - ширина, K - глубина, L - высота
-        const category = row[0]?.toString().trim() || 'Без категории' // Столбец A
-        const name = row[1]?.toString().trim() // Столбец B
-        const imageData = row[4] // Столбец E (изображение)
-        const width = parseFloat(row[9]) || 200 // Столбец J
-        const depth = parseFloat(row[10]) || 200 // Столбец K  
-        const height = parseFloat(row[11]) || 200 // Столбец L
+        const category = row.getCell(1).text?.trim() || 'Без категории' // Столбец A
+        const name = row.getCell(2).text?.trim() // Столбец B
+        const width = parseFloat(row.getCell(10).text) || 200 // Столбец J
+        const depth = parseFloat(row.getCell(11).text) || 200 // Столбец K  
+        const height = parseFloat(row.getCell(12).text) || 200 // Столбец L
 
         if (!name) {
-          errors.push(`Строка ${i + 1}: пустое название товара`)
+          errors.push(`Строка ${rowNumber}: пустое название товара`)
           continue
         }
 
         let imageUrl: string | null = null
 
-        // Обработка изображения если есть данные в столбце E
-        if (imageData && typeof imageData === 'string' && imageData.startsWith('data:image')) {
+        // Проверяем наличие изображения в ячейке E
+        const imageCellRef = `E${rowNumber}`
+        const imageBuffer = imagesMap.get(imageCellRef)
+        
+        if (imageBuffer) {
           try {
-            // Извлекаем base64 данные
-            const base64Data = imageData.split(',')[1]
-            const imageBuffer = Buffer.from(base64Data, 'base64')
-            
-            // Определяем расширение файла из MIME типа
-            const mimeType = imageData.split(';')[0].split(':')[1]
-            const extension = mimeType.split('/')[1]
-            
             // Создаем уникальное имя файла
-            const fileName = `import_${Date.now()}_${i}.${extension}`
+            const fileName = `import_${Date.now()}_${rowNumber}.png`
             const uploadPath = path.join(uploadsDir, fileName)
             
             // Сохраняем файл
@@ -514,8 +530,8 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
             
             console.log(`🖼️  Изображение сохранено: ${fileName}`)
           } catch (imageError) {
-            console.warn(`⚠️  Ошибка обработки изображения в строке ${i + 1}:`, imageError)
-            errors.push(`Строка ${i + 1}: ошибка обработки изображения`)
+            console.warn(`⚠️  Ошибка сохранения изображения в строке ${rowNumber}:`, imageError)
+            errors.push(`Строка ${rowNumber}: ошибка сохранения изображения`)
           }
         }
 
@@ -534,8 +550,8 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
         products.push(product)
         
       } catch (rowError) {
-        console.error(`Ошибка обработки строки ${i + 1}:`, rowError)
-        errors.push(`Строка ${i + 1}: ${rowError instanceof Error ? rowError.message : 'Неизвестная ошибка'}`)
+        console.error(`Ошибка обработки строки ${rowNumber}:`, rowError)
+        errors.push(`Строка ${rowNumber}: ${rowError instanceof Error ? rowError.message : 'Неизвестная ошибка'}`)
       }
     }
 
@@ -565,7 +581,7 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
       success: true,
       message: `Импорт завершен успешно!`,
       statistics: {
-        totalRows: jsonData.length - 1, // Исключаем заголовок
+        totalRows: worksheet.rowCount - 1, // Исключаем заголовок
         processedProducts: savedProducts.length,
         processedImages,
         errors: errors.length
