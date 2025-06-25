@@ -209,7 +209,7 @@ export default function ProductCatalog() {
                   <div className="col-span-1">
                     {product.imageUrl ? (
                       <img
-                        src={product.imageUrl.startsWith('/') ? `${window.location.origin}${product.imageUrl}` : product.imageUrl}
+                        src={product.imageUrl}
                         alt={product.name}
                         className="w-12 h-12 rounded-lg border border-gray-300 object-cover"
                       />
