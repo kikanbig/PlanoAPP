@@ -513,21 +513,48 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
       const images = worksheet.getImages()
       console.log(`🖼️  Найдено изображений в Excel: ${images.length}`)
       
-              for (const image of images) {
-          try {
-            const media = (workbook.model as any).media
-            const imageBuffer = media && media[image.imageId]
-            if (imageBuffer && imageBuffer.buffer) {
-              // Определяем ячейку изображения (примерно)
-              const cellRef = `E${image.range?.tl?.row || 1}`
-              imagesMap.set(cellRef, imageBuffer.buffer)
-              console.log(`🖼️  Изображение найдено в ячейке: ${cellRef}`)
+      // Сначала сортируем изображения по строкам для правильного порядка
+      const sortedImages = images.sort((a, b) => {
+        const rowA = a.range?.tl?.row || 0
+        const rowB = b.range?.tl?.row || 0
+        return rowA - rowB
+      })
+      
+      console.log(`📋 Детали изображений:`)
+      for (let i = 0; i < sortedImages.length; i++) {
+        const image = sortedImages[i]
+        try {
+          const media = (workbook.model as any).media
+          const imageBuffer = media && media[image.imageId]
+          if (imageBuffer && imageBuffer.buffer) {
+            const reportedRow = image.range?.tl?.row || 0
+            const reportedCol = image.range?.tl?.col || 0
+            
+            // Используем более надежное сопоставление:
+            // 1. Если reportedRow > 1, используем его
+            // 2. Иначе используем последовательный порядок начиная с строки 2
+            let targetRow = reportedRow
+            if (reportedRow < 2) {
+              targetRow = 2 + i // Начинаем с строки 2 (после заголовка)
             }
-          } catch (err) {
-            console.warn('Ошибка извлечения изображения:', err)
+            
+            const cellRef = `E${targetRow}`
+            imagesMap.set(cellRef, imageBuffer.buffer)
+            
+            console.log(`  🖼️  Изображение ${i + 1}:`)
+            console.log(`    - Reported row: ${reportedRow}, col: ${reportedCol}`)
+            console.log(`    - Target row: ${targetRow}`)
+            console.log(`    - Cell ref: ${cellRef}`)
+            console.log(`    - Buffer size: ${imageBuffer.buffer.length} bytes`)
           }
+        } catch (err) {
+          console.warn(`⚠️  Ошибка извлечения изображения ${i + 1}:`, err)
         }
+      }
     }
+
+    console.log(`📊 Карта изображений создана: ${imagesMap.size} изображений`)
+    console.log(`📋 Ячейки с изображениями: [${Array.from(imagesMap.keys()).join(', ')}]`)
 
     // Начинаем с второй строки (индекс 2), пропуская заголовок
     for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber++) {
@@ -547,16 +574,23 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
           continue
         }
 
+        console.log(`📝 Обрабатываем строку ${rowNumber}: "${name}" (категория: "${category}")`)
+
         let imageUrl: string | null = null
 
         // Проверяем наличие изображения в ячейке E
         const imageCellRef = `E${rowNumber}`
         const imageBuffer = imagesMap.get(imageCellRef)
         
+        console.log(`🔍 Ищем изображение для строки ${rowNumber}:`)
+        console.log(`  - Ячейка: ${imageCellRef}`)
+        console.log(`  - Найдено: ${imageBuffer ? 'ДА' : 'НЕТ'}`)
+        
         if (imageBuffer) {
           try {
-            // Создаем уникальное имя файла
-            const fileName = `import_${Date.now()}_${rowNumber}.png`
+            // Создаем уникальное имя файла с названием товара
+            const safeName = name.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_').substring(0, 30)
+            const fileName = `import_${safeName}_row${rowNumber}_${Date.now()}.png`
             const uploadPath = path.join(uploadsDir, fileName)
             
             // Сохраняем файл
@@ -564,11 +598,13 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
             imageUrl = `/uploads/${fileName}`
             processedImages++
             
-            console.log(`🖼️  Изображение сохранено: ${fileName}`)
+            console.log(`✅ Изображение сохранено: ${fileName} (размер: ${imageBuffer.length} bytes)`)
           } catch (imageError) {
             console.warn(`⚠️  Ошибка сохранения изображения в строке ${rowNumber}:`, imageError)
             errors.push(`Строка ${rowNumber}: ошибка сохранения изображения`)
           }
+        } else {
+          console.log(`❌ Изображение НЕ найдено для строки ${rowNumber}`)
         }
 
         const product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
