@@ -481,9 +481,9 @@ app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Reque
         const category = row[0]?.toString().trim() || 'Без категории' // Столбец A
         const name = row[1]?.toString().trim() // Столбец B
         const imageData = row[4] // Столбец E (изображение)
-        const width = parseFloat(row[9]) || 50 // Столбец J
-        const depth = parseFloat(row[10]) || 50 // Столбец K  
-        const height = parseFloat(row[11]) || 50 // Столбец L
+        const width = parseFloat(row[9]) || 200 // Столбец J
+        const depth = parseFloat(row[10]) || 200 // Столбец K  
+        const height = parseFloat(row[11]) || 200 // Столбец L
 
         if (!name) {
           errors.push(`Строка ${i + 1}: пустое название товара`)
