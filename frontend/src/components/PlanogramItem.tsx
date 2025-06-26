@@ -1,4 +1,4 @@
-import { Group, Rect, Text, Image as KonvaImage } from 'react-konva'
+import { Group, Rect, Image as KonvaImage } from 'react-konva'
 import { ShelfItem } from '../types'
 
 interface PlanogramItemProps {
@@ -63,32 +63,6 @@ export default function PlanogramItem({
           />
         </>
       )}
-      
-      {/* Semi-transparent overlay for text readability when image is present */}
-      {item.product?.imageUrl && (
-        <Rect
-          width={displayWidth}
-          height={Math.min(20, displayHeight)}
-          y={displayHeight - Math.min(20, displayHeight)}
-          fill="rgba(0, 0, 0, 0.8)"
-          listening={false}
-        />
-      )}
-      
-      {/* Product name text */}
-      <Text
-        text={item.product?.name || 'Полка'}
-        fontSize={Math.min(10, displayWidth / 10)}
-        fill={item.product?.imageUrl ? '#ffffff' : '#374151'}
-        width={displayWidth}
-        height={item.product?.imageUrl ? Math.min(20, displayHeight) : displayHeight}
-        y={item.product?.imageUrl ? displayHeight - Math.min(20, displayHeight) : 0}
-        align="center"
-        verticalAlign="middle"
-        listening={false}
-        fontFamily="Arial, sans-serif"
-        fontStyle="bold"
-      />
     </Group>
   )
 } 
