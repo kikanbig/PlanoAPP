@@ -1921,9 +1921,9 @@ export default function PlanogramEditor() {
                   {/* Tooltip background */}
                   <Rect
                     x={tooltipPosition.x + 10}
-                    y={tooltipPosition.y - 85}
+                    y={tooltipPosition.y - 95}
                     width={200}
-                    height={80}
+                    height={90}
                     fill="rgba(0, 0, 0, 0.9)"
                     cornerRadius={5}
                     listening={false}
@@ -1932,16 +1932,18 @@ export default function PlanogramEditor() {
                     shadowOpacity={0.3}
                   />
                   
-                  {/* Tooltip content */}
+                  {/* Tooltip content - название товара с переносом строк */}
                   <Text
                     x={tooltipPosition.x + 15}
-                    y={tooltipPosition.y - 75}
+                    y={tooltipPosition.y - 85}
                     text={tooltipItem.product.name}
                     fontSize={12}
                     fill="white"
                     width={190}
                     fontStyle="bold"
                     listening={false}
+                    wrap="word"
+                    height={25}
                   />
                   
                   <Text
