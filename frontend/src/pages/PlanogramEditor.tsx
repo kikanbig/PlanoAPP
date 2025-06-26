@@ -1838,11 +1838,76 @@ export default function PlanogramEditor() {
                   onDragEnd={(e) => {
                     const newX = snapToGrid(e.target.x())
                     const newY = snapToGrid(e.target.y())
-                    setItems(prev => prev.map(i => 
-                      i.id === item.id 
-                        ? { ...i, x: newX, y: newY }
-                        : i
-                    ))
+                    
+                    // Проверяем пересечение с другими товарами для замены местами
+                    const draggedItem = item
+                    const draggedRect = {
+                      x: newX,
+                      y: newY,
+                      width: draggedItem.width,
+                      height: draggedItem.height
+                    }
+                    
+                    // Находим товар, с которым пересекается перетаскиваемый товар
+                    const otherProducts = items.filter(i => 
+                      i.type === 'product' && 
+                      i.id !== draggedItem.id
+                    )
+                    
+                    let swapTarget = null
+                    for (const otherItem of otherProducts) {
+                      const otherRect = {
+                        x: otherItem.x,
+                        y: otherItem.y,
+                        width: otherItem.width,
+                        height: otherItem.height
+                      }
+                      
+                      // Проверяем пересечение прямоугольников
+                      const isOverlapping = !(
+                        draggedRect.x >= otherRect.x + otherRect.width ||
+                        draggedRect.x + draggedRect.width <= otherRect.x ||
+                        draggedRect.y >= otherRect.y + otherRect.height ||
+                        draggedRect.y + draggedRect.height <= otherRect.y
+                      )
+                      
+                      if (isOverlapping) {
+                        swapTarget = otherItem
+                        break
+                      }
+                    }
+                    
+                    if (swapTarget) {
+                      // Меняем товары местами
+                      const draggedOldX = draggedItem.x
+                      const draggedOldY = draggedItem.y
+                      const targetX = swapTarget.x
+                      const targetY = swapTarget.y
+                      
+                      setItems(prev => prev.map(i => {
+                        if (i.id === draggedItem.id) {
+                          return { ...i, x: targetX, y: targetY }
+                        }
+                        if (i.id === swapTarget.id) {
+                          return { ...i, x: draggedOldX, y: draggedOldY }
+                        }
+                        return i
+                      }))
+                      
+                      console.log('🔄 Товары поменялись местами:', {
+                        draggedItem: draggedItem.product?.name,
+                        swapTarget: swapTarget.product?.name,
+                        draggedNewPos: { x: targetX, y: targetY },
+                        targetNewPos: { x: draggedOldX, y: draggedOldY }
+                      })
+                    } else {
+                      // Обычное перемещение без замены
+                      setItems(prev => prev.map(i => 
+                        i.id === item.id 
+                          ? { ...i, x: newX, y: newY }
+                          : i
+                      ))
+                    }
                   }}
                   onHover={handleItemHover}
                 />
