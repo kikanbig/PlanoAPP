@@ -1,4 +1,5 @@
-import { Group, Rect, Image as KonvaImage } from 'react-konva'
+import { useState } from 'react'
+import { Group, Rect, Image as KonvaImage, Text } from 'react-konva'
 import { ShelfItem } from '../types'
 
 interface PlanogramItemProps {
@@ -16,6 +17,8 @@ export default function PlanogramItem({
   onClick, 
   onDragEnd 
 }: PlanogramItemProps) {
+  const [isHovered, setIsHovered] = useState(false)
+  
   const strokeColor = isSelected ? '#2563eb' : '#d1d5db'
   const strokeWidth = isSelected ? 2 : 1
 
@@ -31,6 +34,8 @@ export default function PlanogramItem({
       draggable
       onClick={onClick}
       onDragEnd={onDragEnd}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* Background rectangle - только для товаров без изображений */}
       {!item.product?.imageUrl && (
@@ -62,6 +67,69 @@ export default function PlanogramItem({
             listening={false}
           />
         </>
+      )}
+      
+      {/* Hover tooltip */}
+      {isHovered && item.product && (
+        <Group>
+          {/* Tooltip background */}
+          <Rect
+            x={displayWidth + 5}
+            y={-5}
+            width={200}
+            height={80}
+            fill="rgba(0, 0, 0, 0.9)"
+            cornerRadius={5}
+            listening={false}
+            shadowColor="black"
+            shadowBlur={5}
+            shadowOpacity={0.3}
+          />
+          
+          {/* Tooltip content */}
+          <Text
+            x={displayWidth + 10}
+            y={5}
+            text={item.product.name}
+            fontSize={12}
+            fill="white"
+            width={190}
+            fontStyle="bold"
+            listening={false}
+          />
+          
+          <Text
+            x={displayWidth + 10}
+            y={25}
+            text={`Размер: ${item.product.width}×${item.product.height}×${item.product.depth}мм`}
+            fontSize={10}
+            fill="#e5e7eb"
+            width={190}
+            listening={false}
+          />
+          
+          <Text
+            x={displayWidth + 10}
+            y={40}
+            text={`Категория: ${item.product.category}`}
+            fontSize={10}
+            fill="#e5e7eb"
+            width={190}
+            listening={false}
+          />
+          
+          {item.product.barcode && (
+            <Text
+              x={displayWidth + 10}
+              y={55}
+              text={`Штрихкод: ${item.product.barcode}`}
+              fontSize={10}
+              fill="#e5e7eb"
+              width={190}
+              listening={false}
+            />
+          )}
+        </Group>
       )}
     </Group>
   )

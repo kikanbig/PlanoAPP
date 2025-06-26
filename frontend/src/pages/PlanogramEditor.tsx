@@ -39,6 +39,11 @@ export default function PlanogramEditor() {
   const [images, setImages] = useState<{ [key: string]: HTMLImageElement }>({})
   const [currentPlanogramId, setCurrentPlanogramId] = useState<string | null>(null)
   const [currentPlanogramName, setCurrentPlanogramName] = useState<string>('')
+  
+  // Состояние для редактирования товара
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [isEditingProduct, setIsEditingProduct] = useState(false)
+  
   const stageRef = useRef<any>(null)
 
   // Загружаем товары при инициализации
@@ -373,6 +378,40 @@ export default function PlanogramEditor() {
       
       return updatedRack
     }))
+  }, [settings.pixelsPerMm])
+
+  // Функция для обновления товара
+  const updateProductInDatabase = useCallback(async (updatedProduct: Product) => {
+    try {
+      await apiService.updateProduct(updatedProduct.id, updatedProduct)
+      
+      // Обновляем список товаров
+      setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
+      
+      // Обновляем товары на полках
+      setItems(prev => prev.map(item => {
+        if (item.product?.id === updatedProduct.id) {
+          const newWidth = updatedProduct.width * settings.pixelsPerMm
+          const newHeight = updatedProduct.height * settings.pixelsPerMm
+          
+          return {
+            ...item,
+            width: newWidth,
+            height: newHeight,
+            product: updatedProduct
+          }
+        }
+        return item
+      }))
+      
+      // Обновляем товары в стеллажах (товары хранятся в items, а не в полках стеллажей)
+      // Полки стеллажей не содержат товары напрямую - товары размещаются поверх полок
+      
+      toast.success('Товар обновлен')
+    } catch (error) {
+      console.error('Ошибка обновления товара:', error)
+      toast.error('Ошибка обновления товара')
+    }
   }, [settings.pixelsPerMm])
 
   // Эффект для пересчета полок и товаров при изменении масштаба
@@ -1760,7 +1799,11 @@ export default function PlanogramEditor() {
                 Свойства элемента
               </h3>
               <button
-                onClick={() => setShowPropertiesModal(false)}
+                onClick={() => {
+                  setShowPropertiesModal(false)
+                  setIsEditingProduct(false)
+                  setEditingProduct(null)
+                }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 ✕
@@ -1939,13 +1982,147 @@ export default function PlanogramEditor() {
                   
                   {selectedItem.product && (
                     <div className="border-t pt-3">
-                      <h4 className="text-sm font-medium text-gray-800 mb-2">Информация о товаре:</h4>
-                      <div className="text-gray-600">
-                        Размер товара: {selectedItem.product.width}×{selectedItem.product.height}×{selectedItem.product.depth}мм
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-sm font-medium text-gray-800">Информация о товаре:</h4>
+                        <button
+                          onClick={() => {
+                            setEditingProduct({ ...selectedItem.product! })
+                            setIsEditingProduct(true)
+                          }}
+                          className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                        >
+                          Редактировать
+                        </button>
                       </div>
-                      <div className="text-gray-600">
-                        Категория: {selectedItem.product.category}
-                      </div>
+                      
+                      {!isEditingProduct ? (
+                        <>
+                          <div className="text-gray-600">
+                            Размер товара: {selectedItem.product.width}×{selectedItem.product.height}×{selectedItem.product.depth}мм
+                          </div>
+                          <div className="text-gray-600">
+                            Категория: {selectedItem.product.category}
+                          </div>
+                          {selectedItem.product.barcode && (
+                            <div className="text-gray-600">
+                              Штрихкод: {selectedItem.product.barcode}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              Название товара:
+                            </label>
+                            <input
+                              type="text"
+                              value={editingProduct?.name || ''}
+                              onChange={(e) => setEditingProduct(prev => prev ? { ...prev, name: e.target.value } : null)}
+                              className="input w-full text-sm h-8"
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                Ширина (мм):
+                              </label>
+                              <input
+                                type="number"
+                                value={editingProduct?.width || 0}
+                                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, width: Number(e.target.value) } : null)}
+                                className="input w-full text-sm h-8"
+                                min="1"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                Высота (мм):
+                              </label>
+                              <input
+                                type="number"
+                                value={editingProduct?.height || 0}
+                                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, height: Number(e.target.value) } : null)}
+                                className="input w-full text-sm h-8"
+                                min="1"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">
+                                Глубина (мм):
+                              </label>
+                              <input
+                                type="number"
+                                value={editingProduct?.depth || 0}
+                                onChange={(e) => setEditingProduct(prev => prev ? { ...prev, depth: Number(e.target.value) } : null)}
+                                className="input w-full text-sm h-8"
+                                min="1"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              Категория:
+                            </label>
+                            <input
+                              type="text"
+                              value={editingProduct?.category || ''}
+                              onChange={(e) => setEditingProduct(prev => prev ? { ...prev, category: e.target.value } : null)}
+                              className="input w-full text-sm h-8"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              Штрихкод:
+                            </label>
+                            <input
+                              type="text"
+                              value={editingProduct?.barcode || ''}
+                              onChange={(e) => setEditingProduct(prev => prev ? { ...prev, barcode: e.target.value } : null)}
+                              className="input w-full text-sm h-8"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-xs text-gray-600 mb-1">
+                              Цвет:
+                            </label>
+                            <input
+                              type="text"
+                              value={editingProduct?.color || ''}
+                              onChange={(e) => setEditingProduct(prev => prev ? { ...prev, color: e.target.value } : null)}
+                              className="input w-full text-sm h-8"
+                            />
+                          </div>
+                          
+                          <div className="flex gap-2 pt-2">
+                            <button
+                              onClick={async () => {
+                                if (editingProduct) {
+                                  await updateProductInDatabase(editingProduct)
+                                  setIsEditingProduct(false)
+                                  setEditingProduct(null)
+                                }
+                              }}
+                              className="text-xs bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+                            >
+                              Сохранить
+                            </button>
+                            <button
+                              onClick={() => {
+                                setIsEditingProduct(false)
+                                setEditingProduct(null)
+                              }}
+                              className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600"
+                            >
+                              Отмена
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -1954,7 +2131,11 @@ export default function PlanogramEditor() {
             
             <div className="flex justify-end mt-6">
               <button
-                onClick={() => setShowPropertiesModal(false)}
+                onClick={() => {
+                  setShowPropertiesModal(false)
+                  setIsEditingProduct(false)
+                  setEditingProduct(null)
+                }}
                 className="btn btn-secondary"
               >
                 Закрыть
