@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Group, Rect, Image as KonvaImage, Text } from 'react-konva'
+import { Group, Rect, Image as KonvaImage } from 'react-konva'
 import { ShelfItem } from '../types'
 
 interface PlanogramItemProps {
