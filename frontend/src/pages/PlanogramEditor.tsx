@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Stage, Layer, Rect, Group } from 'react-konva'
+import { Stage, Layer, Rect, Group, Text } from 'react-konva'
 import { 
   TrashIcon, 
   DocumentArrowDownIcon,
@@ -43,6 +43,10 @@ export default function PlanogramEditor() {
   // Состояние для редактирования товара
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [isEditingProduct, setIsEditingProduct] = useState(false)
+  
+  // Состояние для tooltip
+  const [tooltipItem, setTooltipItem] = useState<ShelfItem | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   
   const stageRef = useRef<any>(null)
 
@@ -413,6 +417,16 @@ export default function PlanogramEditor() {
       toast.error('Ошибка обновления товара')
     }
   }, [settings.pixelsPerMm])
+
+  // Функция для обработки hover tooltip
+  const handleItemHover = useCallback((item: ShelfItem | null, x: number, y: number) => {
+    if (item && item.product) {
+      setTooltipItem(item)
+      setTooltipPosition({ x, y })
+    } else {
+      setTooltipItem(null)
+    }
+  }, [])
 
   // Эффект для пересчета полок и товаров при изменении масштаба
   const prevPixelsPerMm = useRef(settings.pixelsPerMm)
@@ -1783,9 +1797,75 @@ export default function PlanogramEditor() {
                         : i
                     ))
                   }}
+                  onHover={handleItemHover}
                 />
               ))}
             </Layer>
+            
+            {/* Слой tooltip (поверх всего) */}
+            {tooltipItem && tooltipItem.product && (
+              <Layer>
+                <Group>
+                  {/* Tooltip background */}
+                  <Rect
+                    x={tooltipPosition.x + 10}
+                    y={tooltipPosition.y - 85}
+                    width={200}
+                    height={80}
+                    fill="rgba(0, 0, 0, 0.9)"
+                    cornerRadius={5}
+                    listening={false}
+                    shadowColor="black"
+                    shadowBlur={5}
+                    shadowOpacity={0.3}
+                  />
+                  
+                  {/* Tooltip content */}
+                  <Text
+                    x={tooltipPosition.x + 15}
+                    y={tooltipPosition.y - 75}
+                    text={tooltipItem.product.name}
+                    fontSize={12}
+                    fill="white"
+                    width={190}
+                    fontStyle="bold"
+                    listening={false}
+                  />
+                  
+                  <Text
+                    x={tooltipPosition.x + 15}
+                    y={tooltipPosition.y - 55}
+                    text={`Размер: ${tooltipItem.product.width}×${tooltipItem.product.height}×${tooltipItem.product.depth}мм`}
+                    fontSize={10}
+                    fill="#e5e7eb"
+                    width={190}
+                    listening={false}
+                  />
+                  
+                  <Text
+                    x={tooltipPosition.x + 15}
+                    y={tooltipPosition.y - 40}
+                    text={`Категория: ${tooltipItem.product.category}`}
+                    fontSize={10}
+                    fill="#e5e7eb"
+                    width={190}
+                    listening={false}
+                  />
+                  
+                  {tooltipItem.product.barcode && (
+                    <Text
+                      x={tooltipPosition.x + 15}
+                      y={tooltipPosition.y - 25}
+                      text={`Штрихкод: ${tooltipItem.product.barcode}`}
+                      fontSize={10}
+                      fill="#e5e7eb"
+                      width={190}
+                      listening={false}
+                    />
+                  )}
+                </Group>
+              </Layer>
+            )}
           </Stage>
         </div>
       </div>
