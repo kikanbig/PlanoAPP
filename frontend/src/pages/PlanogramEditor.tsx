@@ -1115,26 +1115,75 @@ export default function PlanogramEditor() {
 
   const exportToPNG = useCallback(() => {
     if (stageRef.current) {
-      // Получаем текущий размер Stage
       const stage = stageRef.current
-      const originalScale = stage.scaleX()
       
-      // Увеличиваем разрешение в 2 раза для лучшего качества
-      const scale = 2
+      // Вычисляем границы всех элементов планограммы
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      
+      // Проверяем стеллажи
+      racks.forEach(rack => {
+        const rackMinX = rack.x
+        const rackMinY = rack.y
+        const rackMaxX = rack.x + (rack.width * settings.pixelsPerMm)
+        const rackMaxY = rack.y + (rack.height * settings.pixelsPerMm)
+        
+        minX = Math.min(minX, rackMinX)
+        minY = Math.min(minY, rackMinY)
+        maxX = Math.max(maxX, rackMaxX)
+        maxY = Math.max(maxY, rackMaxY)
+      })
+      
+      // Проверяем отдельные элементы (полки, товары)
+      items.forEach(item => {
+        const itemMinX = item.x
+        const itemMinY = item.y
+        const itemMaxX = item.x + item.width
+        const itemMaxY = item.y + item.height
+        
+        minX = Math.min(minX, itemMinX)
+        minY = Math.min(minY, itemMinY)
+        maxX = Math.max(maxX, itemMaxX)
+        maxY = Math.max(maxY, itemMaxY)
+      })
+      
+      // Если нет элементов, используем размер canvas по умолчанию
+      if (minX === Infinity) {
+        minX = 0
+        minY = 0
+        maxX = settings.canvasWidth
+        maxY = settings.canvasHeight
+      }
+      
+      // Добавляем отступы
+      const padding = 50
+      minX -= padding
+      minY -= padding
+      maxX += padding
+      maxY += padding
+      
+      // Вычисляем размеры области для экспорта
+      const exportWidth = maxX - minX
+      const exportHeight = maxY - minY
+      
+      console.log('📸 Экспорт области:', {
+        minX, minY, maxX, maxY,
+        width: exportWidth,
+        height: exportHeight,
+        racksCount: racks.length,
+        itemsCount: items.length
+      })
       
       try {
-        // Временно увеличиваем масштаб для экспорта
-        stage.scale({ x: originalScale * scale, y: originalScale * scale })
-        
-        // Экспортируем с высоким качеством
+        // Экспортируем конкретную область с высоким качеством
         const dataURL = stage.toDataURL({ 
           mimeType: 'image/png',
           quality: 1,
-          pixelRatio: scale // Увеличенное разрешение
+          pixelRatio: 2, // Высокое разрешение
+          x: minX,
+          y: minY,
+          width: exportWidth,
+          height: exportHeight
         })
-        
-        // Возвращаем исходный масштаб
-        stage.scale({ x: originalScale, y: originalScale })
         
         // Создаем и скачиваем файл
         const link = document.createElement('a')
@@ -1145,15 +1194,13 @@ export default function PlanogramEditor() {
         link.click()
         document.body.removeChild(link)
         
-        toast.success('Планограмма экспортирована в высоком качестве')
+        toast.success(`Планограмма экспортирована (${Math.round(exportWidth)}×${Math.round(exportHeight)}px)`)
       } catch (error) {
         console.error('Ошибка экспорта:', error)
-        // Возвращаем исходный масштаб в случае ошибки
-        stage.scale({ x: originalScale, y: originalScale })
         toast.error('Ошибка экспорта планограммы')
       }
     }
-  }, [])
+  }, [racks, items, settings])
 
   const savePlanogram = useCallback(async () => {
     // Если планограмма уже открыта, предлагаем обновить или сохранить как новую
