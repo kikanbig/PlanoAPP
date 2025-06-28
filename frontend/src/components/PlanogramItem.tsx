@@ -6,6 +6,7 @@ interface PlanogramItemProps {
   isSelected: boolean
   image?: HTMLImageElement
   onClick: () => void
+  onDragStart?: () => void
   onDragEnd: (e: any) => void
   onHover?: (item: ShelfItem | null, x: number, y: number) => void
 }
@@ -15,6 +16,7 @@ export default function PlanogramItem({
   isSelected, 
   image, 
   onClick, 
+  onDragStart,
   onDragEnd,
   onHover 
 }: PlanogramItemProps) {
@@ -46,6 +48,7 @@ export default function PlanogramItem({
       y={item.y}
       draggable
       onClick={onClick}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

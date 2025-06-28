@@ -9,6 +9,7 @@ interface RackSystem3DProps {
   y: number
   isSelected?: boolean
   onClick?: () => void
+  onDragStart?: () => void
   onDragEnd?: (e: any) => void
 }
 
@@ -19,6 +20,7 @@ export default function RackSystem3D({
   y, 
   isSelected, 
   onClick,
+  onDragStart,
   onDragEnd
 }: RackSystem3DProps) {
   const mmToPixels = (mm: number) => mm * settings.pixelsPerMm
@@ -48,6 +50,7 @@ export default function RackSystem3D({
       y={y}
       draggable
       onClick={onClick}
+      onDragStart={onDragStart}
       onDragEnd={onDragEnd}
     >
       {/* Задняя стенка (если нужна) */}

@@ -7,6 +7,7 @@ interface EnhancedShelfProps {
   settings: PlanogramSettings
   isSelected?: boolean
   onClick?: () => void
+  onDragStart?: () => void
   onDragEnd?: (e: any) => void
   onTransformEnd?: (e: any) => void
   onDistributeProducts?: (shelfId: string) => void
@@ -17,6 +18,7 @@ export default function EnhancedShelf({
   settings, 
   isSelected, 
   onClick, 
+  onDragStart,
   onDragEnd,
   onTransformEnd,
   onDistributeProducts 
@@ -391,6 +393,7 @@ export default function EnhancedShelf({
         height={shelf.height}
         draggable
         onClick={onClick}
+        onDragStart={onDragStart}
         onDragEnd={onDragEnd}
         onTransformEnd={handleTransformEnd}
       >

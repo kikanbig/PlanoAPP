@@ -48,6 +48,10 @@ export default function PlanogramEditor() {
   const [tooltipItem, setTooltipItem] = useState<ShelfItem | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 })
   
+  // Состояние для Undo/Redo
+  const [history, setHistory] = useState<Array<{ items: ShelfItem[], racks: RackSystem[] }>>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  
   const stageRef = useRef<any>(null)
 
   // Загружаем товары при инициализации
@@ -166,7 +170,46 @@ export default function PlanogramEditor() {
     return Math.round(value / gridSizePixels) * gridSizePixels
   }, [settings.gridSizeMm, settings.snapToGrid, mmToPixels])
 
+  // Функции для Undo/Redo
+  const saveToHistory = useCallback(() => {
+    const currentState = { items: [...items], racks: [...racks] }
+    
+    setHistory(prev => {
+      // Удаляем все состояния после текущего индекса (если мы откатывались)
+      const newHistory = prev.slice(0, historyIndex + 1)
+      // Добавляем новое состояние
+      newHistory.push(currentState)
+      // Ограничиваем историю 50 состояниями
+      return newHistory.slice(-50)
+    })
+    
+    setHistoryIndex(prev => Math.min(prev + 1, 49))
+  }, [items, racks, historyIndex])
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1]
+      setItems(prevState.items)
+      setRacks(prevState.racks)
+      setHistoryIndex(prev => prev - 1)
+      toast.success('Отменено')
+    }
+  }, [history, historyIndex])
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1]
+      setItems(nextState.items)
+      setRacks(nextState.racks)
+      setHistoryIndex(prev => prev + 1)
+      toast.success('Повторено')
+    }
+  }, [history, historyIndex])
+
   const addShelf = useCallback((shelfType: ShelfType = 'standard') => {
+    // Сохраняем состояние перед добавлением
+    saveToHistory()
+    
     const newShelf: ShelfItem = {
       id: `shelf-${Date.now()}`,
       x: snapToGrid(50),
@@ -181,7 +224,7 @@ export default function PlanogramEditor() {
     }
     setItems(prev => [...prev, newShelf])
     toast.success(`Полка добавлена`)
-  }, [snapToGrid, mmToPixels, settings.defaultShelfDepth])
+  }, [snapToGrid, mmToPixels, settings.defaultShelfDepth, saveToHistory])
 
   // Функция для создания полок с правильным позиционированием
   const createRackShelves = useCallback((rack: RackSystem) => {
@@ -240,6 +283,9 @@ export default function PlanogramEditor() {
   }, [mmToPixels, settings.pixelsPerMm])
 
   const addRack = useCallback((rackType: 'gondola' | 'wall' | 'endcap' | 'island') => {
+    // Сохраняем состояние перед добавлением
+    saveToHistory()
+    
     const rackId = `rack-${Date.now()}`
     
     // 🎯 СОЗДАЕМ новые стеллажи в разных позициях чтобы они не накладывались
@@ -275,7 +321,7 @@ export default function PlanogramEditor() {
     // НЕ добавляем полки стеллажей в items
     
     toast.success(`Стеллаж добавлен с ${newRack.levels} полками`)
-  }, [snapToGrid, createRackShelves, racks.length])
+  }, [snapToGrid, createRackShelves, racks.length, saveToHistory])
 
   // Функция для обновления полок в стеллаже при изменении количества уровней
   const updateRackShelves = useCallback((rackId: string, newLevels: number) => {
@@ -427,6 +473,15 @@ export default function PlanogramEditor() {
       setTooltipItem(null)
     }
   }, [])
+
+  // Инициализация истории при загрузке компонента
+  useEffect(() => {
+    if (history.length === 0 && (items.length > 0 || racks.length > 0)) {
+      const initialState = { items: [...items], racks: [...racks] }
+      setHistory([initialState])
+      setHistoryIndex(0)
+    }
+  }, [items.length, racks.length, history.length])
 
   // Эффект для пересчета полок и товаров при изменении масштаба
   const prevPixelsPerMm = useRef(settings.pixelsPerMm)
@@ -599,6 +654,9 @@ export default function PlanogramEditor() {
   }, [settings.pixelsPerMm]) // ТОЛЬКО pixelsPerMm!
 
   const addProduct = useCallback((product: Product) => {
+    // Сохраняем состояние перед добавлением
+    saveToHistory()
+    
     console.log(`🎯 ДОБАВЛЕНИЕ ТОВАРА "${product.name}":`, {
       selectedId,
       hasSelectedId: !!selectedId,
@@ -878,7 +936,7 @@ export default function PlanogramEditor() {
     // Показываем информацию о размещении
     const remainingWidthMm = Math.round((shelfRightEdge - nextX - productWidthPx) / settings.pixelsPerMm)
     toast.success(`Товар "${product.name}" добавлен. Свободно: ${remainingWidthMm}мм`)
-  }, [selectedId, items, racks, snapToGrid, mmToPixels, settings.pixelsPerMm])
+  }, [selectedId, items, racks, snapToGrid, mmToPixels, settings.pixelsPerMm, saveToHistory])
 
   // Функция для перемещения товаров к нижней границе полки
   const repositionProductsOnShelf = useCallback((shelfId: string) => {
@@ -1020,6 +1078,9 @@ export default function PlanogramEditor() {
   }, [racks]) // убрал snapToGrid из зависимостей
 
   const deleteItem = useCallback((id: string) => {
+    // Сохраняем состояние перед удалением
+    saveToHistory()
+    
     // Проверяем, удаляется ли стеллаж
     const rackToDelete = racks.find(rack => rack.id === id)
     
@@ -1111,7 +1172,7 @@ export default function PlanogramEditor() {
       console.warn('Элемент для удаления не найден:', id)
       toast.error('Элемент не найден')
     }
-  }, [racks, items, mmToPixels])
+  }, [racks, items, mmToPixels, saveToHistory])
 
   const exportToPNG = useCallback(() => {
     if (stageRef.current) {
@@ -1287,6 +1348,27 @@ export default function PlanogramEditor() {
   // Обработка клавиатуры
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo - Cmd+Z / Ctrl+Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+        return
+      }
+      
+      // Redo - Cmd+Shift+Z / Ctrl+Shift+Z
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault()
+        redo()
+        return
+      }
+      
+      // Альтернативный Redo - Cmd+Y / Ctrl+Y
+      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
+        e.preventDefault()
+        redo()
+        return
+      }
+      
       if (e.key === 'Delete' && selectedId) {
         deleteItem(selectedId)
       }
@@ -1298,7 +1380,7 @@ export default function PlanogramEditor() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, deleteItem])
+  }, [selectedId, deleteItem, undo, redo])
 
   // Получить выбранный элемент
   const selectedItem = (() => {
@@ -1395,6 +1477,22 @@ export default function PlanogramEditor() {
                 Удалить
               </button>
             )}
+            <button
+              onClick={undo}
+              disabled={historyIndex <= 0}
+              className="btn btn-secondary flex items-center gap-1 text-sm py-1 px-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Отменить (Cmd+Z)"
+            >
+              ↶ Отмена
+            </button>
+            <button
+              onClick={redo}
+              disabled={historyIndex >= history.length - 1}
+              className="btn btn-secondary flex items-center gap-1 text-sm py-1 px-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Повторить (Cmd+Shift+Z)"
+            >
+              ↷ Повтор
+            </button>
           </div>
         </div>
 
@@ -1721,6 +1819,10 @@ export default function PlanogramEditor() {
                   y={rack.y}
                   isSelected={selectedId === rack.id}
                   onClick={() => setSelectedId(rack.id)}
+                  onDragStart={() => {
+                    // Сохраняем состояние перед началом перетаскивания стеллажа
+                    saveToHistory()
+                  }}
                   onDragEnd={(e) => {
                     const newX = snapToGrid(e.target.x())
                     const newY = snapToGrid(e.target.y())
@@ -1798,6 +1900,10 @@ export default function PlanogramEditor() {
                     settings={settings}
                     isSelected={selectedId === item.id}
                     onClick={() => setSelectedId(item.id)}
+                    onDragStart={() => {
+                      // Сохраняем состояние перед началом перетаскивания полки
+                      saveToHistory()
+                    }}
                     onDragEnd={(e) => {
                       const newX = snapToGrid(e.target.x())
                       const newY = snapToGrid(e.target.y())
@@ -1835,6 +1941,10 @@ export default function PlanogramEditor() {
                   isSelected={selectedId === item.id}
                   image={item.product?.imageUrl ? images[item.product.imageUrl] : undefined}
                   onClick={() => setSelectedId(item.id)}
+                  onDragStart={() => {
+                    // Сохраняем состояние перед началом перетаскивания
+                    saveToHistory()
+                  }}
                   onDragEnd={(e) => {
                     const newX = snapToGrid(e.target.x())
                     const newY = snapToGrid(e.target.y())
