@@ -1,5 +1,30 @@
 export type ShelfType = 'standard' | 'hook' | 'basket' | 'divider' | 'slanted' | 'wire' | 'bottle' | 'pegboard'
 
+// Типы для аутентификации
+export interface User {
+  id: string
+  email: string
+  name: string
+  role: 'manager' | 'admin'
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AuthRequest {
+  email: string
+  password: string
+}
+
+export interface RegisterRequest extends AuthRequest {
+  name: string
+  role?: 'manager' | 'admin'
+}
+
+export interface AuthResponse {
+  user: User
+  token: string
+}
+
 export interface Product {
   id: string
   name: string
@@ -71,6 +96,7 @@ export interface Planogram {
     racks?: RackSystem[]
     settings?: PlanogramSettings
   } // Поле для хранения данных планограммы как JSON
+  userId?: string // ID пользователя-владельца
   createdAt: string
   updatedAt: string
 } 

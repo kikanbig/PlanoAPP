@@ -8,6 +8,8 @@ import path from 'path'
 import fs from 'fs'
 import * as XLSX from 'xlsx'
 import * as ExcelJS from 'exceljs'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import { createDatabaseAdapter } from './database'
 
 // Import custom types
@@ -17,11 +19,56 @@ import {
   DestinationCallback, 
   FilenameCallback,
   Product,
-  Planogram 
+  Planogram,
+  User,
+  UserResponse,
+  AuthRequest,
+  AuthResponse
 } from './types'
 
 // Load environment variables
 dotenv.config()
+
+// JWT секретный ключ
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production'
+
+// Интерфейс для расширения Request с пользователем
+interface AuthenticatedRequest extends Request {
+  user?: UserResponse
+}
+
+// Middleware для проверки JWT токена
+const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1] // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ error: 'Токен доступа требуется' })
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any
+    const user = await db.getUserById(decoded.userId)
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Пользователь не найден' })
+    }
+
+    // Добавляем пользователя в request без пароля
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
+    
+    next()
+  } catch (error) {
+    return res.status(403).json({ error: 'Неверный токен' })
+  }
+}
 
 // Инициализируем адаптер базы данных
 const db = createDatabaseAdapter()
@@ -179,6 +226,117 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
+// ================== AUTH ROUTES ==================
+
+// Регистрация пользователя
+app.post('/api/auth/register', async (req: Request, res: Response) => {
+  try {
+    const { email, password, name, role = 'manager' }: AuthRequest & { name: string, role?: 'manager' | 'admin' } = req.body
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, пароль и имя обязательны' })
+    }
+
+    // Проверяем существует ли пользователь
+    const existingUser = await db.getUserByEmail(email)
+    if (existingUser) {
+      return res.status(400).json({ error: 'Пользователь с таким email уже существует' })
+    }
+
+    // Хешируем пароль
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // Создаем нового пользователя
+    const newUser: User = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      email,
+      password: hashedPassword,
+      name,
+      role,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    const savedUser = await db.createUser(newUser)
+
+    // Создаем JWT токен
+    const token = jwt.sign({ userId: savedUser.id }, JWT_SECRET, { expiresIn: '7d' })
+
+    // Отправляем ответ без пароля
+    const userResponse: UserResponse = {
+      id: savedUser.id,
+      email: savedUser.email,
+      name: savedUser.name,
+      role: savedUser.role,
+      createdAt: savedUser.createdAt,
+      updatedAt: savedUser.updatedAt
+    }
+
+    const authResponse: AuthResponse = {
+      user: userResponse,
+      token
+    }
+
+    res.status(201).json(authResponse)
+  } catch (error) {
+    console.error('Error registering user:', error)
+    res.status(500).json({ error: 'Ошибка регистрации пользователя' })
+  }
+})
+
+// Вход пользователя
+app.post('/api/auth/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password }: AuthRequest = req.body
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email и пароль обязательны' })
+    }
+
+    // Ищем пользователя
+    const user = await db.getUserByEmail(email)
+    if (!user) {
+      return res.status(401).json({ error: 'Неверный email или пароль' })
+    }
+
+    // Проверяем пароль
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Неверный email или пароль' })
+    }
+
+    // Создаем JWT токен
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
+
+    // Отправляем ответ без пароля
+    const userResponse: UserResponse = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    }
+
+    const authResponse: AuthResponse = {
+      user: userResponse,
+      token
+    }
+
+    res.json(authResponse)
+  } catch (error) {
+    console.error('Error logging in user:', error)
+    res.status(500).json({ error: 'Ошибка входа пользователя' })
+  }
+})
+
+// Получение информации о текущем пользователе
+app.get('/api/auth/me', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  res.json(req.user)
+})
+
+// ================== BASIC ROUTES ==================
+
 // Routes
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
@@ -226,7 +384,9 @@ app.get('/api/debug/uploads', (req: Request, res: Response) => {
   }
 })
 
-// Products routes
+// ================== PRODUCTS ROUTES ==================
+
+// Products routes (оставляем публичными для просмотра каталога)
 app.get('/api/products', async (req: Request, res: Response) => {
   try {
     const products = await db.getProducts()
@@ -237,7 +397,7 @@ app.get('/api/products', async (req: Request, res: Response) => {
   }
 })
 
-app.post('/api/products', async (req: Request, res: Response) => {
+app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { name, width, height, depth, color, category, barcode, imageUrl, spacing } = req.body
     
@@ -264,7 +424,7 @@ app.post('/api/products', async (req: Request, res: Response) => {
   }
 })
 
-app.put('/api/products/:id', async (req: Request, res: Response) => {
+app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
     const { name, width, height, depth, color, category, barcode, imageUrl, spacing } = req.body
@@ -293,7 +453,7 @@ app.put('/api/products/:id', async (req: Request, res: Response) => {
   }
 })
 
-app.delete('/api/products/:id', async (req: Request, res: Response) => {
+app.delete('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
     const deleted = await db.deleteProduct(id)
@@ -310,7 +470,7 @@ app.delete('/api/products/:id', async (req: Request, res: Response) => {
 })
 
 // File upload route
-app.post('/api/upload', upload.single('image'), (req: Request, res: Response) => {
+app.post('/api/upload', authenticateToken, upload.single('image'), (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' })
@@ -336,10 +496,12 @@ app.post('/api/upload', upload.single('image'), (req: Request, res: Response) =>
   }
 })
 
-// Planograms routes
-app.get('/api/planograms', async (req: Request, res: Response) => {
+// ================== PLANOGRAMS ROUTES ==================
+
+// Планограммы - теперь показываем только планограммы пользователя
+app.get('/api/planograms', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const planograms = await db.getPlanograms()
+    const planograms = await db.getPlanograms(req.user!.id)
     res.json(planograms)
   } catch (error) {
     console.error('Error getting planograms:', error)
@@ -347,13 +509,18 @@ app.get('/api/planograms', async (req: Request, res: Response) => {
   }
 })
 
-app.get('/api/planograms/:id', async (req: Request, res: Response) => {
+app.get('/api/planograms/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
     const planogram = await db.getPlanogram(id)
     
     if (!planogram) {
       return res.status(404).json({ error: 'Планограмма не найдена' })
+    }
+
+    // Проверяем что планограмма принадлежит текущему пользователю
+    if (planogram.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Нет доступа к этой планограмме' })
     }
     
     // Парсим JSON данные планограммы
@@ -369,6 +536,7 @@ app.get('/api/planograms/:id', async (req: Request, res: Response) => {
       res.json({
         id: planogram.id,
         name: planogram.name,
+        userId: planogram.userId,
         createdAt: planogram.createdAt,
         updatedAt: planogram.updatedAt,
         data: parsedData // Данные планограммы в поле data
@@ -384,7 +552,7 @@ app.get('/api/planograms/:id', async (req: Request, res: Response) => {
   }
 })
 
-app.post('/api/planograms', async (req: Request, res: Response) => {
+app.post('/api/planograms', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { name, category, items, racks, settings } = req.body
     
@@ -401,6 +569,7 @@ app.post('/api/planograms', async (req: Request, res: Response) => {
       id: Date.now().toString(),
       name,
       data: JSON.stringify(planogramData), // Сохраняем как JSON строку
+      userId: req.user!.id, // Привязываем к текущему пользователю
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -408,7 +577,8 @@ app.post('/api/planograms', async (req: Request, res: Response) => {
     console.log(`💾 Сохраняем планограмму "${name}" с данными:`, {
       itemsCount: items?.length || 0,
       racksCount: racks?.length || 0,
-      hasSettings: !!settings
+      hasSettings: !!settings,
+      userId: req.user!.id
     })
     
     const planogram = await db.addPlanogram(newPlanogram)
@@ -422,10 +592,20 @@ app.post('/api/planograms', async (req: Request, res: Response) => {
   }
 })
 
-app.put('/api/planograms/:id', async (req: Request, res: Response) => {
+app.put('/api/planograms/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
     const { name, category, items, racks, settings } = req.body
+    
+    // Сначала проверяем что планограмма существует и принадлежит пользователю
+    const existingPlanogram = await db.getPlanogram(id)
+    if (!existingPlanogram) {
+      return res.status(404).json({ error: 'Планограмма не найдена' })
+    }
+
+    if (existingPlanogram.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Нет доступа к этой планограмме' })
+    }
     
     // Создаем объект планограммы совместимый с типами (аналогично POST)
     const planogramData = {
@@ -460,9 +640,20 @@ app.put('/api/planograms/:id', async (req: Request, res: Response) => {
   }
 })
 
-app.delete('/api/planograms/:id', async (req: Request, res: Response) => {
+app.delete('/api/planograms/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
+    
+    // Сначала проверяем что планограмма существует и принадлежит пользователю
+    const existingPlanogram = await db.getPlanogram(id)
+    if (!existingPlanogram) {
+      return res.status(404).json({ error: 'Планограмма не найдена' })
+    }
+
+    if (existingPlanogram.userId !== req.user!.id) {
+      return res.status(403).json({ error: 'Нет доступа к этой планограмме' })
+    }
+    
     const deleted = await db.deletePlanogram(id)
     
     if (!deleted) {
@@ -477,7 +668,7 @@ app.delete('/api/planograms/:id', async (req: Request, res: Response) => {
 })
 
 // Excel Import route
-app.post('/api/import-excel', excelUpload.single('excelFile'), async (req: Request, res: Response) => {
+app.post('/api/import-excel', authenticateToken, excelUpload.single('excelFile'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No Excel file uploaded' })
@@ -678,11 +869,14 @@ if (process.env.NODE_ENV !== 'production') {
       status: 'Development mode',
       api_health: '/api/health',
       available_endpoints: [
+        'POST /api/auth/register',
+        'POST /api/auth/login',
+        'GET /api/auth/me',
         'GET /api/health',
         'GET /api/products',
-        'POST /api/products',
-        'GET /api/planograms',
-        'POST /api/planograms'
+        'POST /api/products (auth)',
+        'GET /api/planograms (auth)',
+        'POST /api/planograms (auth)'
       ]
     })
   })

@@ -14,44 +14,32 @@ try {
   // sqlite3 не установлен
 }
 
-// Типы данных
-interface Product {
-  id: string
-  name: string
-  width: number
-  height: number
-  depth: number
-  color: string
-  category?: string
-  barcode?: string
-  imageUrl?: string | null
-  spacing?: number
-  createdAt: string
-  updatedAt: string
-}
-
-interface Planogram {
-  id: string
-  name: string
-  data: any
-  createdAt: string
-  updatedAt: string
-}
+import { User, UserResponse, Product, Planogram } from './types'
 
 // Определяем тип базы данных на основе переменных окружения
 const isProduction = process.env.NODE_ENV === 'production'
 const databaseUrl = process.env.DATABASE_URL
 
 interface DatabaseAdapter {
+  // Пользователи
+  getUserByEmail(email: string): Promise<User | null>
+  getUserById(id: string): Promise<User | null>
+  createUser(user: User): Promise<User>
+  updateUser(id: string, updates: Partial<User>): Promise<User | null>
+  
+  // Товары
   getProducts(): Promise<Product[]>
   addProduct(product: Product): Promise<Product>
   updateProduct(id: string, product: Partial<Product>): Promise<Product | null>
   deleteProduct(id: string): Promise<boolean>
-  getPlanograms(): Promise<Planogram[]>
+  
+  // Планограммы
+  getPlanograms(userId?: string): Promise<Planogram[]>
   addPlanogram(planogram: Planogram): Promise<Planogram>
   updatePlanogram(id: string, planogram: Partial<Planogram>): Promise<Planogram | null>
   deletePlanogram(id: string): Promise<boolean>
   getPlanogram(id: string): Promise<Planogram | null>
+  
   close(): Promise<void>
 }
 
@@ -70,6 +58,19 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   private async initTables() {
     const client = await this.pool.connect()
     try {
+      // Создаем таблицу пользователей
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id VARCHAR(255) PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
+          password VARCHAR(255) NOT NULL,
+          name VARCHAR(255) NOT NULL,
+          role VARCHAR(50) DEFAULT 'manager',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+
       // Создаем таблицу товаров
       await client.query(`
         CREATE TABLE IF NOT EXISTS products (
@@ -88,14 +89,16 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         )
       `)
 
-      // Создаем таблицу планограмм
+      // Создаем таблицу планограмм с привязкой к пользователю
       await client.query(`
         CREATE TABLE IF NOT EXISTS planograms (
           id VARCHAR(255) PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           data JSONB NOT NULL,
+          user_id VARCHAR(255) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `)
 
@@ -107,6 +110,117 @@ class PostgreSQLAdapter implements DatabaseAdapter {
     }
   }
 
+  // Методы для работы с пользователями
+  async getUserByEmail(email: string): Promise<User | null> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query('SELECT * FROM users WHERE email = $1', [email])
+      if (result.rows.length === 0) return null
+
+      const row = result.rows[0]
+      return {
+        id: row.id,
+        email: row.email,
+        password: row.password,
+        name: row.name,
+        role: row.role,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    } finally {
+      client.release()
+    }
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    const client = await this.pool.connect()
+    try {
+      const result = await client.query('SELECT * FROM users WHERE id = $1', [id])
+      if (result.rows.length === 0) return null
+
+      const row = result.rows[0]
+      return {
+        id: row.id,
+        email: row.email,
+        password: row.password,
+        name: row.name,
+        role: row.role,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    } finally {
+      client.release()
+    }
+  }
+
+  async createUser(user: User): Promise<User> {
+    const client = await this.pool.connect()
+    try {
+      await client.query(`
+        INSERT INTO users (id, email, password, name, role, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `, [
+        user.id, user.email, user.password, user.name, user.role,
+        user.createdAt, user.updatedAt
+      ])
+      return user
+    } finally {
+      client.release()
+    }
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | null> {
+    const client = await this.pool.connect()
+    try {
+      const setClause = []
+      const values = []
+      let paramIndex = 1
+
+      if (updates.email !== undefined) {
+        setClause.push(`email = $${paramIndex++}`)
+        values.push(updates.email)
+      }
+      if (updates.password !== undefined) {
+        setClause.push(`password = $${paramIndex++}`)
+        values.push(updates.password)
+      }
+      if (updates.name !== undefined) {
+        setClause.push(`name = $${paramIndex++}`)
+        values.push(updates.name)
+      }
+      if (updates.role !== undefined) {
+        setClause.push(`role = $${paramIndex++}`)
+        values.push(updates.role)
+      }
+
+      setClause.push(`updated_at = $${paramIndex++}`)
+      values.push(new Date().toISOString())
+      values.push(id)
+
+      const result = await client.query(`
+        UPDATE users SET ${setClause.join(', ')} 
+        WHERE id = $${paramIndex} 
+        RETURNING *
+      `, values)
+
+      if (result.rows.length === 0) return null
+
+      const row = result.rows[0]
+      return {
+        id: row.id,
+        email: row.email,
+        password: row.password,
+        name: row.name,
+        role: row.role,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }
+    } finally {
+      client.release()
+    }
+  }
+
+  // Методы для работы с товарами
   async getProducts(): Promise<Product[]> {
     const client = await this.pool.connect()
     try {
@@ -233,14 +347,26 @@ class PostgreSQLAdapter implements DatabaseAdapter {
     }
   }
 
-  async getPlanograms(): Promise<Planogram[]> {
+  // Методы для работы с планограммами
+  async getPlanograms(userId?: string): Promise<Planogram[]> {
     const client = await this.pool.connect()
     try {
-      const result = await client.query('SELECT * FROM planograms ORDER BY created_at DESC')
+      let query = 'SELECT * FROM planograms'
+      let params: any[] = []
+      
+      if (userId) {
+        query += ' WHERE user_id = $1'
+        params = [userId]
+      }
+      
+      query += ' ORDER BY created_at DESC'
+      
+      const result = await client.query(query, params)
       return result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
         data: row.data,
+        userId: row.user_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }))
@@ -253,10 +379,10 @@ class PostgreSQLAdapter implements DatabaseAdapter {
     const client = await this.pool.connect()
     try {
       await client.query(`
-        INSERT INTO planograms (id, name, data, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO planograms (id, name, data, user_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
       `, [planogram.id, planogram.name, JSON.stringify(planogram.data), 
-          planogram.createdAt, planogram.updatedAt])
+          planogram.userId, planogram.createdAt, planogram.updatedAt])
       return planogram
     } finally {
       client.release()
@@ -278,6 +404,10 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         setClause.push(`data = $${paramIndex++}`)
         values.push(JSON.stringify(updates.data))
       }
+      if (updates.userId !== undefined) {
+        setClause.push(`user_id = $${paramIndex++}`)
+        values.push(updates.userId)
+      }
 
       setClause.push(`updated_at = $${paramIndex++}`)
       values.push(new Date().toISOString())
@@ -296,6 +426,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         id: row.id,
         name: row.name,
         data: row.data,
+        userId: row.user_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }
@@ -325,6 +456,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         id: row.id,
         name: row.name,
         data: row.data,
+        userId: row.user_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }
@@ -339,6 +471,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
 }
 
 class SQLiteAdapter implements DatabaseAdapter {
+  private users: User[] = []
   private products: Product[] = []
   private planograms: Planogram[] = []
 
@@ -346,6 +479,29 @@ class SQLiteAdapter implements DatabaseAdapter {
     console.log('📱 Using SQLite for local development')
   }
 
+  // Методы для работы с пользователями
+  async getUserByEmail(email: string): Promise<User | null> {
+    return this.users.find(u => u.email === email) || null
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    return this.users.find(u => u.id === id) || null
+  }
+
+  async createUser(user: User): Promise<User> {
+    this.users.push(user)
+    return user
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | null> {
+    const index = this.users.findIndex(u => u.id === id)
+    if (index === -1) return null
+
+    this.users[index] = { ...this.users[index], ...updates, updatedAt: new Date().toISOString() }
+    return this.users[index]
+  }
+
+  // Методы для работы с товарами
   async getProducts(): Promise<Product[]> {
     return this.products
   }
@@ -371,7 +527,11 @@ class SQLiteAdapter implements DatabaseAdapter {
     return true
   }
 
-  async getPlanograms(): Promise<Planogram[]> {
+  // Методы для работы с планограммами
+  async getPlanograms(userId?: string): Promise<Planogram[]> {
+    if (userId) {
+      return this.planograms.filter(p => p.userId === userId)
+    }
     return this.planograms
   }
 
