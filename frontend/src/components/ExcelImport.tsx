@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { DocumentArrowUpIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
+import { importExcel } from '../services/api'
 
 interface ImportResult {
   success: boolean
@@ -78,17 +79,11 @@ export default function ExcelImport({ onImportComplete, onClose }: ExcelImportPr
     setIsUploading(true)
     
     try {
-      const formData = new FormData()
-      formData.append('excelFile', file)
+      console.log('🔄 Начинаем импорт Excel файла:', file.name)
+      
+      const result: ImportResult = await importExcel(file)
 
-      const response = await fetch('/api/import-excel', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const result: ImportResult = await response.json()
-
-      if (response.ok && result.success) {
+      if (result.success) {
         setImportResult(result)
         toast.success(`Импорт завершен! Добавлено ${result.statistics.processedProducts} товаров`)
         onImportComplete()

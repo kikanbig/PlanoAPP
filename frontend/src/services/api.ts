@@ -44,6 +44,13 @@ class ApiService {
     const token = AuthTokenService.getToken()
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
+      console.log('🔑 Отправляем запрос с токеном:', {
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenPreview: token.substring(0, 20) + '...'
+      })
+    } else {
+      console.warn('⚠️ Токен авторизации не найден в localStorage')
     }
     
     return headers
@@ -53,13 +60,25 @@ class ApiService {
   private async handleResponse<T>(response: Response): Promise<T> {
     if (response.status === 401) {
       // Токен недействителен, удаляем его
+      console.warn('🔑 Токен недействителен или истек. Перенаправляем на страницу входа...')
       AuthTokenService.removeToken()
-      window.location.href = '/login'
-      throw new Error('Требуется авторизация')
+      
+      // Если пользователь не на странице логина - перенаправляем
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      
+      throw new Error('Требуется повторная авторизация. Пожалуйста, войдите в систему заново.')
     }
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
+      console.error('❌ API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData.error,
+        url: response.url
+      })
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
     }
     
@@ -200,6 +219,9 @@ class ApiService {
     const token = AuthTokenService.getToken()
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
+      console.log('🔑 Загрузка изображения с токеном')
+    } else {
+      console.warn('⚠️ Загрузка изображения без токена')
     }
 
     const response = await fetch(`${API_BASE_URL}/upload`, {
@@ -209,6 +231,33 @@ class ApiService {
     })
 
     return this.handleResponse<{ imageUrl: string }>(response)
+  }
+
+  // Excel Import API
+  async importExcel(file: File): Promise<any> {
+    const formData = new FormData()
+    formData.append('excelFile', file)
+
+    const headers: Record<string, string> = {}
+    const token = AuthTokenService.getToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+      console.log('🔑 Импорт Excel с токеном:', {
+        hasToken: !!token,
+        tokenLength: token.length,
+        tokenPreview: token.substring(0, 20) + '...'
+      })
+    } else {
+      console.warn('⚠️ Импорт Excel без токена')
+    }
+
+    const response = await fetch(`${API_BASE_URL}/import-excel`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    return this.handleResponse<any>(response)
   }
 }
 
@@ -232,3 +281,4 @@ export const createPlanogram = (planogram: Omit<Planogram, 'id' | 'createdAt' | 
 export const updatePlanogram = (id: string, planogram: Omit<Planogram, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => apiService.updatePlanogram(id, planogram)
 export const deletePlanogram = (id: string) => apiService.deletePlanogram(id)
 export const uploadImage = (file: File) => apiService.uploadImage(file)
+export const importExcel = (file: File) => apiService.importExcel(file)
