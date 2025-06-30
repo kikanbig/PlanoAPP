@@ -69,7 +69,14 @@ export default function PlanogramEditor() {
         const planogram = await apiService.getPlanogram(planogramId)
         
         // Данные планограммы могут быть в поле data или напрямую в объекте
-        const planogramData = planogram.data || planogram
+        let planogramData: any
+        try {
+          planogramData = typeof planogram.data === 'string' 
+            ? JSON.parse(planogram.data) 
+            : planogram.data
+        } catch {
+          planogramData = {}
+        }
         
         console.log('📋 Загружена планограмма:', {
           name: planogram.name,
@@ -1291,10 +1298,13 @@ export default function PlanogramEditor() {
     try {
       const planogramData = {
         name: planogramName,
-        category: 'Основная',
-        items: items,
-        racks: racks,
-        settings: settings
+        data: {
+          name: planogramName,
+          category: 'Основная',
+          items: items,
+          racks: racks,
+          settings: settings
+        } as any
       }
 
       if (shouldUpdate && currentPlanogramId) {

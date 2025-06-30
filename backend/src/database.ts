@@ -28,7 +28,7 @@ interface DatabaseAdapter {
   updateUser(id: string, updates: Partial<User>): Promise<User | null>
   
   // Товары
-  getProducts(): Promise<Product[]>
+  getProducts(userId?: string): Promise<Product[]>
   addProduct(product: Product): Promise<Product>
   updateProduct(id: string, product: Partial<Product>): Promise<Product | null>
   deleteProduct(id: string): Promise<boolean>
@@ -71,7 +71,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         )
       `)
 
-      // Создаем таблицу товаров
+      // Создаем таблицу товаров с привязкой к пользователю
       await client.query(`
         CREATE TABLE IF NOT EXISTS products (
           id VARCHAR(255) PRIMARY KEY,
@@ -84,10 +84,39 @@ class PostgreSQLAdapter implements DatabaseAdapter {
           barcode VARCHAR(255),
           image_url TEXT,
           spacing INTEGER DEFAULT 2,
+          user_id VARCHAR(255) NOT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `)
+
+      // Добавляем поле user_id в существующую таблицу products, если его нет
+      try {
+        await client.query(`
+          ALTER TABLE products 
+          ADD COLUMN IF NOT EXISTS user_id VARCHAR(255)
+        `)
+        
+        // Добавляем foreign key constraint, если его нет
+        await client.query(`
+          DO $$ 
+          BEGIN 
+              IF NOT EXISTS (
+                  SELECT 1 
+                  FROM information_schema.table_constraints 
+                  WHERE constraint_name = 'products_user_id_fkey'
+                  AND table_name = 'products'
+              ) THEN
+                  ALTER TABLE products 
+                  ADD CONSTRAINT products_user_id_fkey 
+                  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+              END IF;
+          END $$;
+        `)
+      } catch (alterError) {
+        console.log('Info: Table products might already have user_id column')
+      }
 
       // Создаем таблицу планограмм с привязкой к пользователю
       await client.query(`
@@ -221,10 +250,20 @@ class PostgreSQLAdapter implements DatabaseAdapter {
   }
 
   // Методы для работы с товарами
-  async getProducts(): Promise<Product[]> {
+  async getProducts(userId?: string): Promise<Product[]> {
     const client = await this.pool.connect()
     try {
-      const result = await client.query('SELECT * FROM products ORDER BY created_at DESC')
+      let query = 'SELECT * FROM products'
+      let params: any[] = []
+      
+      if (userId) {
+        query += ' WHERE user_id = $1'
+        params = [userId]
+      }
+      
+      query += ' ORDER BY created_at DESC'
+      
+      const result = await client.query(query, params)
       return result.rows.map((row: any) => ({
         id: row.id,
         name: row.name,
@@ -236,6 +275,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         barcode: row.barcode,
         imageUrl: row.image_url,
         spacing: row.spacing || 2,
+        userId: row.user_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }))
@@ -248,12 +288,12 @@ class PostgreSQLAdapter implements DatabaseAdapter {
     const client = await this.pool.connect()
     try {
       await client.query(`
-        INSERT INTO products (id, name, width, height, depth, color, category, barcode, image_url, spacing, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO products (id, name, width, height, depth, color, category, barcode, image_url, spacing, user_id, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       `, [
         product.id, product.name, product.width, product.height, product.depth,
         product.color, product.category, product.barcode, product.imageUrl, 
-        product.spacing || 2, product.createdAt, product.updatedAt
+        product.spacing || 2, product.userId, product.createdAt, product.updatedAt
       ])
       return product
     } finally {
@@ -304,6 +344,10 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         setClause.push(`spacing = $${paramIndex++}`)
         values.push(updates.spacing)
       }
+      if (updates.userId !== undefined) {
+        setClause.push(`user_id = $${paramIndex++}`)
+        values.push(updates.userId)
+      }
 
       setClause.push(`updated_at = $${paramIndex++}`)
       values.push(new Date().toISOString())
@@ -329,6 +373,7 @@ class PostgreSQLAdapter implements DatabaseAdapter {
         barcode: row.barcode,
         imageUrl: row.image_url,
         spacing: row.spacing || 2,
+        userId: row.user_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }
@@ -502,7 +547,10 @@ class SQLiteAdapter implements DatabaseAdapter {
   }
 
   // Методы для работы с товарами
-  async getProducts(): Promise<Product[]> {
+  async getProducts(userId?: string): Promise<Product[]> {
+    if (userId) {
+      return this.products.filter(p => p.userId === userId)
+    }
     return this.products
   }
 

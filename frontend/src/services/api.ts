@@ -1,20 +1,6 @@
-import { Planogram, User, AuthRequest, RegisterRequest, AuthResponse } from '../types'
+import { Planogram, Product, User, AuthRequest, RegisterRequest, AuthResponse } from '../types'
 
 const API_BASE_URL = '/api'
-
-export interface Product {
-  id: string
-  name: string
-  width: number
-  height: number
-  depth: number
-  color: string
-  category: string
-  barcode?: string
-  imageUrl?: string | null
-  createdAt?: string
-  updatedAt?: string
-}
 
 // Сервис для управления токенами
 class AuthTokenService {
@@ -132,7 +118,9 @@ class ApiService {
 
   // Products API
   async getProducts(): Promise<Product[]> {
-    const response = await fetch(`${API_BASE_URL}/products`)
+    const response = await fetch(`${API_BASE_URL}/products`, {
+      headers: this.getAuthHeaders(),
+    })
     return this.handleResponse<Product[]>(response)
   }
 

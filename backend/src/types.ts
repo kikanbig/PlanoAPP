@@ -55,6 +55,7 @@ export interface Product {
   barcode?: string
   imageUrl?: string | null
   spacing?: number
+  userId: string  // связь с пользователем-владельцем
   createdAt: string
   updatedAt: string
 }

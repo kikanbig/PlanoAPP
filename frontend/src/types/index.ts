@@ -32,10 +32,13 @@ export interface Product {
   height: number
   depth: number
   color: string
-  category: string
+  category?: string
   barcode?: string
   imageUrl?: string | null
   spacing?: number // расстояние между товарами в мм (по умолчанию 50мм)
+  userId: string  // связь с пользователем-владельцем
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ShelfItem {
@@ -84,19 +87,39 @@ export interface PlanogramSettings {
   defaultShelfDepth: number // глубина полки по умолчанию в мм
 }
 
+export interface PlanogramData {
+  name: string
+  category: string
+  items: PlanogramItem[]
+  racks: RackItem[]
+  settings: any
+}
+
 export interface Planogram {
   id: string
   name: string
-  category?: string
-  items?: ShelfItem[]
-  racks?: RackSystem[]
-  settings?: PlanogramSettings
-  data?: {
-    items?: ShelfItem[]
-    racks?: RackSystem[]
-    settings?: PlanogramSettings
-  } // Поле для хранения данных планограммы как JSON
-  userId?: string // ID пользователя-владельца
+  data: PlanogramData | string
+  userId: string  // связь с пользователем
   createdAt: string
   updatedAt: string
+}
+
+export interface PlanogramItem {
+  id: string
+  productId: string
+  x: number
+  y: number
+  rackId?: string
+  level?: number
+  product?: Product
+}
+
+export interface RackItem {
+  id: string
+  x: number
+  y: number
+  width: number
+  height: number
+  levels: number
+  name?: string
 } 

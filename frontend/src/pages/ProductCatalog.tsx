@@ -68,19 +68,19 @@ export default function ProductCatalog() {
     }
   }
 
-  const handleSaveProduct = async (productData: Omit<Product, 'id'>) => {
-    try {
-      if (editingProduct) {
-        const updatedProduct = await apiService.updateProduct(editingProduct.id, productData)
-        setProducts(prev => prev.map(p => 
-          p.id === editingProduct.id ? updatedProduct : p
-        ))
-        toast.success('Товар обновлен')
-      } else {
-        const newProduct = await apiService.createProduct(productData)
-        setProducts(prev => [...prev, newProduct])
-        toast.success('Товар добавлен')
-      }
+  const handleSaveProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => {
+          try {
+        if (editingProduct) {
+          const updatedProduct = await apiService.updateProduct(editingProduct.id, productData as any)
+          setProducts(prev => prev.map(p =>
+            p.id === editingProduct.id ? updatedProduct : p
+          ))
+          toast.success('Товар обновлен')
+        } else {
+          const newProduct = await apiService.createProduct(productData as any)
+          setProducts(prev => [...prev, newProduct])
+          toast.success('Товар добавлен')
+        }
       setIsModalOpen(false)
     } catch (error) {
       console.error('Ошибка сохранения товара:', error)
@@ -358,7 +358,7 @@ export default function ProductCatalog() {
 
 interface ProductModalProps {
   product: Product | null
-  onSave: (product: Omit<Product, 'id'>) => void
+  onSave: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt' | 'userId'>) => void
   onClose: () => void
 }
 

@@ -163,11 +163,20 @@ export default function HomePage() {
                     <div className="flex items-center text-sm text-gray-500">
                       <CalendarIcon className="w-4 h-4 mr-1" />
                       Создана {formatDate(planogram.createdAt)}
-                      {planogram.category && (
-                        <span className="ml-2 px-2 py-1 bg-gray-100 rounded text-xs">
-                          {planogram.category}
-                        </span>
-                      )}
+                      {(() => {
+                        try {
+                          const data = typeof planogram.data === 'string' 
+                            ? JSON.parse(planogram.data) 
+                            : planogram.data
+                          return data.category && (
+                            <span className="ml-2 px-2 py-1 bg-gray-100 rounded text-xs">
+                              {data.category}
+                            </span>
+                          )
+                        } catch {
+                          return null
+                        }
+                      })()}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">

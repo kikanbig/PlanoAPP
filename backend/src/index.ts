@@ -386,10 +386,10 @@ app.get('/api/debug/uploads', (req: Request, res: Response) => {
 
 // ================== PRODUCTS ROUTES ==================
 
-// Products routes (оставляем публичными для просмотра каталога)
-app.get('/api/products', async (req: Request, res: Response) => {
+// Products routes - теперь показываем только товары пользователя
+app.get('/api/products', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const products = await db.getProducts()
+    const products = await db.getProducts(req.user!.id)
     res.json(products)
   } catch (error) {
     console.error('Error getting products:', error)
@@ -412,6 +412,7 @@ app.post('/api/products', authenticateToken, async (req: AuthenticatedRequest, r
       barcode,
       imageUrl: imageUrl || null,
       spacing: spacing || 2,
+      userId: req.user!.id, // Привязываем товар к текущему пользователю
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -428,6 +429,14 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
   try {
     const { id } = req.params
     const { name, width, height, depth, color, category, barcode, imageUrl, spacing } = req.body
+    
+    // Сначала проверяем что товар существует и принадлежит пользователю
+    const existingProducts = await db.getProducts(req.user!.id)
+    const productToUpdate = existingProducts.find(p => p.id === id)
+    
+    if (!productToUpdate) {
+      return res.status(404).json({ error: 'Товар не найден или нет доступа' })
+    }
     
     const updatedProduct = await db.updateProduct(id, {
       name,
@@ -456,6 +465,15 @@ app.put('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest
 app.delete('/api/products/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params
+    
+    // Сначала проверяем что товар существует и принадлежит пользователю
+    const existingProducts = await db.getProducts(req.user!.id)
+    const productToDelete = existingProducts.find(p => p.id === id)
+    
+    if (!productToDelete) {
+      return res.status(404).json({ error: 'Товар не найден или нет доступа' })
+    }
+    
     const deleted = await db.deleteProduct(id)
     
     if (!deleted) {
@@ -806,7 +824,8 @@ app.post('/api/import-excel', authenticateToken, excelUpload.single('excelFile')
           color: '#E5E7EB', // Цвет по умолчанию
           barcode: '', // Штрихкод пустой по умолчанию
           imageUrl,
-          spacing: 2 // Отступ по умолчанию
+          spacing: 2, // Отступ по умолчанию
+          userId: req.user!.id // Привязываем к текущему пользователю
         }
 
         products.push(product)
